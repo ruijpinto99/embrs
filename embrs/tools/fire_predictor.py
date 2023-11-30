@@ -61,7 +61,7 @@ class FirePredictor(BaseFireSim):
         topography_map = orig_fire.base_topography
         topography_res = orig_fire.topography_res
 
-        wind_forecast = self.generate_noisy_wind(orig_fire.wind_vec._forecast, orig_fire.wind_vec._time_step)
+        wind_forecast = self.generate_noisy_wind(orig_fire.wind_vec._forecast)
         wind_t_step = orig_fire.wind_vec._time_step
 
         wind_vec = Wind(wind_forecast, wind_t_step)
