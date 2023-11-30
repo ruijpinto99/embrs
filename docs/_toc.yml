@@ -1,0 +1,29 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: intro
+parts:
+- caption: Tutorials
+  chapters:
+  - file: background
+  - file: raw_data
+  - file: map_creation
+  - file: wind_forecast
+  - file: running_sim
+  - file: log_files
+  - file: visualization
+- caption: User Reference
+  chapters:
+  - file: user_code
+  - file: interface_reference
+  - file: fire_prediction
+  - file: sim_documentation
+  - file: base_class_documentation
+  - file: other_documentation
+  - file: example_index
+- caption: Theory and Background
+  chapters:
+   - file: fire_modelling
+   - file: interpreting_visualizations
+   - file: bibliography
