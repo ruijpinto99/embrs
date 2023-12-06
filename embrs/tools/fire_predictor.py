@@ -9,10 +9,10 @@ towards a more or less conservative prediction.
     :members:
 
 """
-from fire_simulator.fire import FireSim
-from fire_simulator.wind import Wind
-from base_classes.base_fire import BaseFireSim
-from utilities.fire_util import FireTypes, CellStates, UtilFuncs
+from embrs.fire_simulator.fire import FireSim
+from embrs.fire_simulator.wind import Wind
+from embrs.base_classes.base_fire import BaseFireSim
+from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs
 
 import numpy as np
 

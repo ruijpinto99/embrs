@@ -11,13 +11,13 @@ from typing import Tuple
 from tqdm import tqdm
 import numpy as np
 from shapely.geometry import shape, LineString
-from fire_simulator.visualizer import Visualizer
-from fire_simulator.logger import Logger
-from fire_simulator.fire import FireSim
-from fire_simulator.wind import Wind
-from utilities.file_io import SimFolderSelector, LoaderWindow
-from utilities.fire_util import UtilFuncs
-from base_classes.control_base import ControlClass
+from .fire_simulator.visualizer import Visualizer
+from .fire_simulator.logger import Logger
+from .fire_simulator.fire import FireSim
+from .fire_simulator.wind import Wind
+from .utilities.file_io import SimFolderSelector, LoaderWindow
+from .utilities.fire_util import UtilFuncs
+from .base_classes.control_base import ControlClass
 
 def initialize(params: dict) -> Tuple[FireSim, bool, Visualizer]:
     """Initializes a fireSim object and a Visualizer(if selected) based on user inputs
@@ -253,6 +253,9 @@ def sim_loop(params: dict):
     print("")
     print(f"Finished running {num_runs} simulation(s)")
 
-if __name__ == "__main__":
+def main():
     folder_selector = SimFolderSelector(sim_loop)
     folder_selector.run()
+
+if __name__ == "__main__":
+    main()

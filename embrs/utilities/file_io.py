@@ -15,8 +15,8 @@ from typing import Callable, Tuple
 import numpy as np
 import time
 
-from utilities.fire_util import FuelConstants
-from base_classes.control_base import ControlClass
+from embrs.utilities.fire_util import FuelConstants
+from embrs.base_classes.control_base import ControlClass
 
 class FileSelectBase:
     """Base class for creating tkinter file and folder selector interfaces

@@ -4,7 +4,7 @@ forecast.
 
 import json
 
-from utilities.file_io import WindForecastGen
+from .utilities.file_io import WindForecastGen
 
 def save_wind_output(data: dict):
     """Function called after user is finished entering wind forecast data in GUI. Parses the input

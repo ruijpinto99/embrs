@@ -11,14 +11,14 @@ from typing import Tuple
 from shapely.geometry import Point
 import numpy as np
 
-from utilities.fire_util import CellStates, FireTypes
-from utilities.fire_util import RoadConstants as rc
-from utilities.fire_util import HexGridMath as hex
-from utilities.fire_util import ControlledBurnParams
-from fire_simulator.cell import Cell
-from fire_simulator.fuel import Fuel
-from fire_simulator.wind import Wind
-from base_classes.agent_base import AgentBase
+from embrs.utilities.fire_util import CellStates, FireTypes
+from embrs.utilities.fire_util import RoadConstants as rc
+from embrs.utilities.fire_util import HexGridMath as hex
+from embrs.utilities.fire_util import ControlledBurnParams
+from embrs.fire_simulator.cell import Cell
+from embrs.fire_simulator.fuel import Fuel
+from embrs.fire_simulator.wind import Wind
+from embrs.base_classes.agent_base import AgentBase
 
 class BaseFireSim:
     """Base class implementation of fire simulation.

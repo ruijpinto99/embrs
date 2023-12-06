@@ -11,7 +11,7 @@ import sys
 import os
 import msgpack
 
-from fire_simulator.fire import FireSim
+from embrs.fire_simulator.fire import FireSim
 
 class Logger:
     """Logger class used to generate log files from sim data

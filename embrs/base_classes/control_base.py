@@ -6,7 +6,7 @@
 """
 
 from abc import ABC, abstractmethod
-from fire_simulator.fire import FireSim
+from embrs.fire_simulator.fire import FireSim
 
 class ControlClass(ABC):
     """Abstract base class that custom control code must implement to be used with the simulator.

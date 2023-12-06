@@ -4,8 +4,8 @@
     :members:
 """
 
-from utilities.fire_util import FuelConstants as fc
-from utilities.fire_util import CellStates
+from embrs.utilities.fire_util import FuelConstants as fc
+from embrs.utilities.fire_util import CellStates
 
 class Fuel:
     """Class representation of a fuel type, contains various relevant fuel properites to model

@@ -7,11 +7,11 @@
 from tqdm import tqdm
 import numpy as np
 
-from base_classes.base_fire import BaseFireSim
-from utilities.fire_util import CellStates, FireTypes
-from utilities.fire_util import ControlledBurnParams
-from fire_simulator.cell import Cell
-from fire_simulator.wind import Wind
+from embrs.base_classes.base_fire import BaseFireSim
+from embrs.utilities.fire_util import CellStates, FireTypes
+from embrs.utilities.fire_util import ControlledBurnParams
+from embrs.fire_simulator.cell import Cell
+from embrs.fire_simulator.wind import Wind
 
 class FireSim(BaseFireSim):
     """Fire simulator class utilizing a probabilistic fire model.

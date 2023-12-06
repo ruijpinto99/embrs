@@ -16,11 +16,11 @@ from matplotlib.axes import Axes
 from matplotlib import cm
 import numpy as np
 
-from utilities.fire_util import CellStates, FireTypes
-from utilities.fire_util import FuelConstants as fc
-from utilities.fire_util import RoadConstants as rc
-from utilities.fire_util import UtilFuncs as util
-from fire_simulator.fire import FireSim
+from embrs.utilities.fire_util import CellStates, FireTypes
+from embrs.utilities.fire_util import FuelConstants as fc
+from embrs.utilities.fire_util import RoadConstants as rc
+from embrs.utilities.fire_util import UtilFuncs as util
+from embrs.fire_simulator.fire import FireSim
 
 mpl.use('TkAgg')
 

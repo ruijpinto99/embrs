@@ -17,9 +17,9 @@ import pandas as pd
 import numpy as np
 import msgpack
 
-from utilities.file_io import VizFolderSelector, LoaderWindow
-from utilities.fire_util import CellStates, FireTypes
-from utilities.fire_util import FuelConstants as fc, RoadConstants as rc, UtilFuncs as util
+from .utilities.file_io import VizFolderSelector, LoaderWindow
+from .utilities.fire_util import CellStates, FireTypes
+from .utilities.fire_util import FuelConstants as fc, RoadConstants as rc, UtilFuncs as util
 
 
 class VisualizationTool:

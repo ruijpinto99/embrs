@@ -8,8 +8,8 @@ on fire propagation
 from typing import Tuple
 import numpy as np
 
-from utilities.fire_util import WindAdjustments
-from fire_simulator.cell import Cell
+from embrs.utilities.fire_util import WindAdjustments
+from embrs.fire_simulator.cell import Cell
 
 class Wind:
     """Wind class that specifies the wind conditions for a given simulation.

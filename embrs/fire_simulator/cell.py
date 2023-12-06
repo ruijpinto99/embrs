@@ -7,10 +7,10 @@
 import numpy as np
 from shapely.geometry import Polygon
 
-from utilities.fire_util import ControlledBurnParams
-from utilities.fire_util import CellStates, FireTypes
-from utilities.fire_util import HexGridMath as hex
-from fire_simulator.fuel import Fuel
+from embrs.utilities.fire_util import ControlledBurnParams
+from embrs.utilities.fire_util import CellStates, FireTypes
+from embrs.utilities.fire_util import HexGridMath as hex
+from embrs.fire_simulator.fuel import Fuel
 
 class Cell:
     """Class representation of the discrete cells that make up the fire sim. This holds the state
