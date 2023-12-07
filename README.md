@@ -23,10 +23,11 @@ pip install -e embrs
 ```
 
 ## Usage
+
+### Launching EMBRS Applications
 Once EMBRS is installed, to launch the provided EMBRS applications to run a sim, run a visualization, create a map, and create a wind forecast you can use the following terminal commands.
 
 ```
-
 # Run a simulation
 run_embrs_sim
 
@@ -46,3 +47,27 @@ create_embrs_wind
 
 Upon running these commands you will see GUI windows allowing you to specify each process. Read the full documentation for information on how to use each.
 
+### Importing and using EMBRS clases
+You will now be able to import EMBRS clases into your python files, for example if you would like to import the fire prediction module and run a prediction you could use code similar to below:
+```{python}
+
+from embrs.tools.fire_predictor import FirePredictor
+from embrs.fire_simulator.fire import FireSim
+
+#... custom class implementation
+
+
+def process_state(self, fire:FireSim):
+  # ... rest of process_state code
+
+
+  if (some condition):
+    # construct a fire predictor
+      fire_predictor = FirePredictor(fire, 3, bias=1)
+      prediction = fire_predictor.run_prediction()
+
+# ... rest of custom class implementation
+
+```
+
+More information is provided in the documentation on code usage.
