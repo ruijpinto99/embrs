@@ -1,6 +1,0 @@
-docs
-embrs
-examples
-sample_raw_map_data
-sample_wind_forecasts
-setup
