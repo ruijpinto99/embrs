@@ -15,8 +15,8 @@ Developers who would like to inspect the source code can install EMBRS by downlo
 
 ```bash
     # Download source code from the 'main' branch
-    git clone -b main 
-    
+    git clone -b main https://github.com/AREAL-GT/embrs.git
+
     # install EMBRS
     pip install -e embrs
 
