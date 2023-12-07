@@ -22,7 +22,7 @@ Before running the prediction model, a `FirePredictor` object must first be cons
 **Example Constructors**
 
 ```python
-from tools.fire_predictor import FirePredictor
+from embrs.tools.fire_predictor import FirePredictor
 
 # Construct a FirePredictor that will predict 3 hours into the future with no bias
 # Using default values for fuel_type, time_step_s, and cell_size_m

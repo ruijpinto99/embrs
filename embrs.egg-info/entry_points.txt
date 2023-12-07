@@ -1,0 +1,5 @@
+[console_scripts]
+create_embrs_map = embrs.map_generator:main
+create_embrs_wind = embrs.wind_forecast_generator:main
+run_embrs_sim = embrs.main:main
+run_embrs_viz = embrs.visualization_tool:main

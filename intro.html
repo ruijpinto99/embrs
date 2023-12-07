@@ -387,14 +387,8 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">EMBRS: Engineering Model for Burning and Real-time Suppression</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pip">Pip</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#source-code-installation">Source Code Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 </ul>
-</li>
-</ul>
-
             </nav>
         </div>
     </div>
@@ -409,28 +403,23 @@ document.write(`
 <h1>EMBRS: Engineering Model for Burning and Real-time Suppression<a class="headerlink" href="#embrs-engineering-model-for-burning-and-real-time-suppression" title="Permalink to this heading">#</a></h1>
 <p>EMBRS is a real-time fire simulation software that provides users a sandbox for testing fire
 suppression algorithms and strategies in a Python framework.</p>
-</section>
-<section class="tex2jax_ignore mathjax_ignore" id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">#</a></h1>
-<p>There are two methods for installing the EMBRS package.</p>
-<section id="pip">
-<h2>Pip<a class="headerlink" href="#pip" title="Permalink to this heading">#</a></h2>
-<p>The easiest way to install EMBRS is by using <code class="docutils literal notranslate"><span class="pre">pip</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>EMBRS
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">#</a></h2>
+<p>EMBRS can be installed by downloading source code or via the PyPI package manager with <code class="docutils literal notranslate"><span class="pre">pip</span></code>.</p>
+<p>The simplest method is using <code class="docutils literal notranslate"><span class="pre">pip</span></code> with the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>embrs
 </pre></div>
 </div>
-</section>
-<section id="source-code-installation">
-<h2>Source Code Installation<a class="headerlink" href="#source-code-installation" title="Permalink to this heading">#</a></h2>
-<p>If you would like to inspect the source code or make any modifications to the model, you should download from the GitHub repository and then use pip to install it. Run the following commands in your terminal to do so.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone git repository</span>
-git<span class="w"> </span>clone<span class="w"> </span>https://github.gatech.edu/rjdp3/MAS_Fire_Sim_Package.git
+<p>Developers who would like to inspect the source code can install EMBRS by downloading the git repository from GitHub and use <code class="docutils literal notranslate"><span class="pre">pip</span></code> to install it locally. The following terminal commands can be used to do this:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="c1"># Download source code from the &#39;main&#39; branch</span>
+<span class="w">    </span>git<span class="w"> </span>clone<span class="w"> </span>-b<span class="w"> </span>main<span class="w"> </span>https://github.com/AREAL-GT/embrs.git
 
-<span class="c1"># Install EMBRS</span>
-pip<span class="w"> </span>install<span class="w"> </span>EMBRS
+<span class="c1"># install EMBRS</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>embrs
 </pre></div>
 </div>
-<p><em>TODO: Correct the above commands for actual release repository and package name</em></p>
+<p>Upon running these commands you will see GUI windows allowing you to specify each process. Read the rest of this site for information on how to use each.</p>
+</section>
 </section>
 <div class="toctree-wrapper compound">
 </div>
@@ -498,14 +487,8 @@ pip<span class="w"> </span>install<span class="w"> </span>EMBRS
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">EMBRS: Engineering Model for Burning and Real-time Suppression</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pip">Pip</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#source-code-installation">Source Code Installation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
 </div></div>
