@@ -253,7 +253,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git" target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -270,7 +270,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git/issues/new?title=Issue%20on%20page%20%2Fuser_code.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book/issues/new?title=Issue%20on%20page%20%2Fuser_code.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -423,7 +423,7 @@ document.write(`
 <section id="base-class-implementation">
 <h3>Base Class Implementation<a class="headerlink" href="#base-class-implementation" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Custom classes must implement the provided abstract base class called <span class="xref myst"><code class="docutils literal notranslate"><span class="pre">ControlClass</span></code></span> which is provided in ‘base_classes/base_control_class.py’.</p></li>
+<li><p>Custom classes must implement the provided abstract base class called <a class="reference internal" href="_autosummary/embrs.base_classes.control_base.html"><span class="doc std std-doc"><code class="docutils literal notranslate"><span class="pre">ControlClass</span></code></span></a> which is provided in ‘base_classes/base_control_class.py’.</p></li>
 <li><p>The base class requires the implementation of the <code class="docutils literal notranslate"><span class="pre">process_state</span></code> method. This is the method that is called after each iteration of an EMBRS simulation. It must take only a <code class="docutils literal notranslate"><span class="pre">FireSim</span></code> object as an input and shouldn’t return anything.</p></li>
 <li><p>The implementation of the body of this method is completely up to the user, but it acts as the ‘bridge’ between the custom control class and the EMBRS simulation.</p></li>
 </ul>
@@ -463,7 +463,7 @@ document.write(`
 <ul>
 <li><p><strong>Implement AgentBase Class</strong></p>
 <ul class="simple">
-<li><p>Your agent class must be a subclass of the provided <span class="xref myst"><code class="docutils literal notranslate"><span class="pre">AgentBase</span></code></span> class located in ‘base_classes/agent_base.py’.</p></li>
+<li><p>Your agent class must be a subclass of the provided <a class="reference internal" href="_autosummary/embrs.base_classes.agent_base.html"><span class="doc std std-doc"><code class="docutils literal notranslate"><span class="pre">AgentBase</span></code></span></a> class located in ‘base_classes/agent_base.py’.</p></li>
 <li><p>The base class just contains a constructor and a function <code class="docutils literal notranslate"><span class="pre">to_log_format()</span></code> that is called by the sim to log data about the agent as the simulation progression.</p></li>
 <li><p>Sample code for implementing a custom agent class can be found <a class="reference internal" href="example_index.html#examples-sample-agent"><span class="std std-ref">here.</span></a></p></li>
 </ul>

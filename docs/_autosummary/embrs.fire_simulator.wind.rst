@@ -1,7 +1,7 @@
-﻿fire_simulator.wind
-==================
+﻿embrs.fire\_simulator.wind
+==========================
 
-.. automodule:: fire_simulator.wind
+.. automodule:: embrs.fire_simulator.wind
 
    
    

@@ -1,7 +1,7 @@
-﻿base_classes.agent\_base
-=======================
+﻿embrs.base\_classes.agent\_base
+===============================
 
-.. automodule:: base_classes.agent_base
+.. automodule:: embrs.base_classes.agent_base
 
    
    

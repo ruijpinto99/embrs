@@ -1,5 +1,5 @@
 # Fire Interface
-The `BaseFireSim` class has a number of public functions that make up a pseudo-interface. These functions are designed to be used by custom control classes, which will have access to the current `BaseFireSim` through their `process_state` method ([See Custom Control Classes](./user_code.md)). Below are some usage examples of these public functions, for full documentation see [the dedicated documentation page](./_autosummary/base_classes.base_fire.rst)
+The `BaseFireSim` class has a number of public functions that make up a pseudo-interface. These functions are designed to be used by custom control classes, which will have access to the current `BaseFireSim` through their `process_state` method ([See Custom Control Classes](./user_code.md)). Below are some usage examples of these public functions, for full documentation see [the dedicated documentation page](./_autosummary/embrs.base_classes.base_fire.rst)
 
 For all the examples below we will assume that `fire` is an instance of the `BaseFireSim` class.
 
@@ -345,7 +345,7 @@ The `roads` property returns a list of (x,y) coordinates, each paired with a fue
 ```
 
 ```{note}
-The example functions and properties provided here are not comprehensize, see [base_classes.base_fire](./_autosummary/base_classes.base_fire.rst) for full documentation.
+The example functions and properties provided here are not comprehensize, see [base_classes.base_fire](./_autosummary/embrs.base_classes.base_fire.rst) for full documentation.
 ```
 
 

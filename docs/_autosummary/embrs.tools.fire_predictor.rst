@@ -1,7 +1,7 @@
-﻿tools.fire\_predictor
-=====================
+﻿embrs.tools.fire\_predictor
+===========================
 
-.. automodule:: tools.fire_predictor
+.. automodule:: embrs.tools.fire_predictor
 
    
    

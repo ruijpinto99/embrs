@@ -1,7 +1,7 @@
-﻿fire\_simulator.cell
-====================
+﻿embrs.fire\_simulator.cell
+==========================
 
-.. automodule:: fire_simulator.cell
+.. automodule:: embrs.fire_simulator.cell
 
    
    

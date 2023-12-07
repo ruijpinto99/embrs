@@ -70,4 +70,4 @@ For example, if the `FirePredictor` was constructed when the `FireSim` time was 
 
 With this output, you can understand what regions are more likely to ignite, and roughly what time they will ignite. This can be used to inform your custom control class and direct the control strategy.
 
-Documentation for the fire prediction tool can be found [here.](./_autosummary/tools.fire_predictor.rst)
+Documentation for the fire prediction tool can be found [here.](./_autosummary/embrs.tools.fire_predictor.rst)

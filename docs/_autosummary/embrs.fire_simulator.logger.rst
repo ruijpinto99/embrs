@@ -1,7 +1,7 @@
-﻿fire_simulator.logger
-====================
+﻿embrs.fire\_simulator.logger
+============================
 
-.. automodule:: fire_simulator.logger
+.. automodule:: embrs.fire_simulator.logger
 
    
    

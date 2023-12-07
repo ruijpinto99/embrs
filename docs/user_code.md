@@ -5,7 +5,7 @@ One of the core features of EMBRS is the ability to import custom control classe
 
 ### Base Class Implementation
 
-- Custom classes must implement the provided abstract base class called [`ControlClass`](./_autosummary/base_classes.control_base.rst) which is provided in 'base_classes/base_control_class.py'.
+- Custom classes must implement the provided abstract base class called [`ControlClass`](./_autosummary/embrs.base_classes.control_base.rst) which is provided in 'base_classes/base_control_class.py'.
 - The base class requires the implementation of the `process_state` method. This is the method that is called after each iteration of an EMBRS simulation. It must take only a `FireSim` object as an input and shouldn't return anything.
 - The implementation of the body of this method is completely up to the user, but it acts as the 'bridge' between the custom control class and the EMBRS simulation.
 
@@ -41,7 +41,7 @@ class ExampleCustomClass(ControlClass):
 - If you wish to have the simulation track your agents you must do the following:
 
     - **Implement AgentBase Class**
-        - Your agent class must be a subclass of the provided [`AgentBase`](./_autosummary/base_classes.agent_base.rst) class located in 'base_classes/agent_base.py'. 
+        - Your agent class must be a subclass of the provided [`AgentBase`](./_autosummary/embrs.base_classes.agent_base.rst) class located in 'base_classes/agent_base.py'. 
         - The base class just contains a constructor and a function `to_log_format()` that is called by the sim to log data about the agent as the simulation progression.
         - Sample code for implementing a custom agent class can be found [here.](examples:sample_agent)
 

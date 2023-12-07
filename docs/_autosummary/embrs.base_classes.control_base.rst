@@ -1,7 +1,7 @@
-﻿base_classes.control\_base
-=========================
+﻿embrs.base\_classes.control\_base
+=================================
 
-.. automodule:: base_classes.control_base
+.. automodule:: embrs.base_classes.control_base
 
    
    

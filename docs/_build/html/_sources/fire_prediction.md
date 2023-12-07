@@ -22,7 +22,7 @@ Before running the prediction model, a `FirePredictor` object must first be cons
 **Example Constructors**
 
 ```python
-from tools.fire_predictor import FirePredictor
+from embrs.tools.fire_predictor import FirePredictor
 
 # Construct a FirePredictor that will predict 3 hours into the future with no bias
 # Using default values for fuel_type, time_step_s, and cell_size_m
@@ -70,4 +70,4 @@ For example, if the `FirePredictor` was constructed when the `FireSim` time was 
 
 With this output, you can understand what regions are more likely to ignite, and roughly what time they will ignite. This can be used to inform your custom control class and direct the control strategy.
 
-Documentation for the fire prediction tool can be found [here.](./_autosummary/tools.fire_predictor.rst)
+Documentation for the fire prediction tool can be found [here.](./_autosummary/embrs.tools.fire_predictor.rst)

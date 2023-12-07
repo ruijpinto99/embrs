@@ -1,7 +1,7 @@
-﻿fire_simulator.fuel
-==================
+﻿embrs.fire\_simulator.fuel
+==========================
 
-.. automodule:: fire_simulator.fuel
+.. automodule:: embrs.fire_simulator.fuel
 
    
    

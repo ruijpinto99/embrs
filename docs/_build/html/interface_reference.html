@@ -253,7 +253,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git" target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -270,7 +270,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git/issues/new?title=Issue%20on%20page%20%2Finterface_reference.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book/issues/new?title=Issue%20on%20page%20%2Finterface_reference.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -424,7 +424,7 @@ document.write(`
                   
   <section class="tex2jax_ignore mathjax_ignore" id="fire-interface">
 <h1>Fire Interface<a class="headerlink" href="#fire-interface" title="Permalink to this heading">#</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">BaseFireSim</span></code> class has a number of public functions that make up a pseudo-interface. These functions are designed to be used by custom control classes, which will have access to the current <code class="docutils literal notranslate"><span class="pre">BaseFireSim</span></code> through their <code class="docutils literal notranslate"><span class="pre">process_state</span></code> method (<a class="reference internal" href="user_code.html"><span class="doc std std-doc">See Custom Control Classes</span></a>). Below are some usage examples of these public functions, for full documentation see <span class="xref myst">the dedicated documentation page</span></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">BaseFireSim</span></code> class has a number of public functions that make up a pseudo-interface. These functions are designed to be used by custom control classes, which will have access to the current <code class="docutils literal notranslate"><span class="pre">BaseFireSim</span></code> through their <code class="docutils literal notranslate"><span class="pre">process_state</span></code> method (<a class="reference internal" href="user_code.html"><span class="doc std std-doc">See Custom Control Classes</span></a>). Below are some usage examples of these public functions, for full documentation see <a class="reference internal" href="_autosummary/embrs.base_classes.base_fire.html"><span class="doc std std-doc">the dedicated documentation page</span></a></p>
 <p>For all the examples below we will assume that <code class="docutils literal notranslate"><span class="pre">fire</span></code> is an instance of the <code class="docutils literal notranslate"><span class="pre">BaseFireSim</span></code> class.</p>
 <section id="retrieving-cells">
 <h2>Retrieving Cells<a class="headerlink" href="#retrieving-cells" title="Permalink to this heading">#</a></h2>
@@ -456,7 +456,7 @@ document.write(`
 <h2>Setting State<a class="headerlink" href="#setting-state" title="Permalink to this heading">#</a></h2>
 <p>At any point, you can set the state of a cell to one of the three available <a class="reference internal" href="fire_modelling.html#fire-modelling-state"><span class="std std-ref">states</span></a> (<code class="docutils literal notranslate"><span class="pre">FUEL</span></code>, <code class="docutils literal notranslate"><span class="pre">FIRE</span></code> and <code class="docutils literal notranslate"><span class="pre">BURNT</span></code>).</p>
 <p><strong>This can be done by passing in the cell object explicitly:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">embrs.utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
 
    <span class="n">state</span> <span class="o">=</span> <span class="n">CellStates</span><span class="o">.</span><span class="n">BURNT</span>
 
@@ -466,7 +466,7 @@ document.write(`
 </pre></div>
 </div>
 <p><strong>Or by passing in the x,y coordinates:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">embrs.utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
    
    <span class="c1"># x_m and y_m are floats in meters</span>
    <span class="n">x_m</span> <span class="o">=</span> <span class="mf">1205.4</span>
@@ -480,7 +480,7 @@ document.write(`
 </pre></div>
 </div>
 <p><strong>Or by passing in the indices:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">embrs.utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>   <span class="kn">from</span> <span class="nn">utilities.fire_util</span> <span class="kn">import</span> <span class="n">CellStates</span>
 
    <span class="c1"># row and col must be integers</span>
    <span class="n">row</span> <span class="o">=</span> <span class="mi">120</span>
@@ -727,7 +727,7 @@ document.write(`
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The example functions and properties provided here are not comprehensize, see <span class="xref myst">base_classes.base_fire</span> for full documentation.</p>
+<p>The example functions and properties provided here are not comprehensize, see <a class="reference internal" href="_autosummary/embrs.base_classes.base_fire.html"><span class="doc std std-doc">base_classes.base_fire</span></a> for full documentation.</p>
 </div>
 </section>
 </section>

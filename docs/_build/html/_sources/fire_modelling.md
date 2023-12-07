@@ -97,7 +97,7 @@ scale: 70%
 
 (fire_modelling:nom_spread_vel)=
 ### Nominal Spread Velocities
-The nominal spread velocity for a fuel is the nominal velocity in ch/hr that a fire would spread within the given fuel type with a 8 km/hr wind as published in [Anderson's paper](https://www.fs.usda.gov/rm/pubs_int/int_gtr122.pdf). These values are used in the [ignition probability calculation](lfire_modelling:ignition_prob). The nominal spread velocity for each fuel type is listed in the table below:
+The nominal spread velocity for a fuel is the nominal velocity in ch/hr that a fire would spread within the given fuel type with a 8 km/hr wind as published in [Anderson's paper](https://www.fs.usda.gov/rm/pubs_int/int_gtr122.pdf). These values are used in the [ignition probability calculation](fire_modelling:ignition_prob). The nominal spread velocity for each fuel type is listed in the table below:
 
 ```{figure} /images/model_nominal_vels.png
 ---

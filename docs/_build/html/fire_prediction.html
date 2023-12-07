@@ -253,7 +253,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git" target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -270,7 +270,7 @@ const thebe_selector_output = ".output, .cell_output"
       
       
       
-      <li><a href="https://github.com/AREAL-GT/embrs.git/issues/new?title=Issue%20on%20page%20%2Ffire_prediction.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/executablebooks/jupyter-book/issues/new?title=Issue%20on%20page%20%2Ffire_prediction.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -429,7 +429,7 @@ document.write(`
 <li><p><code class="docutils literal notranslate"><span class="pre">cell_size_m</span></code> - the cell size (in meters) you would like the prediction model to use. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to twice the cell size of <code class="docutils literal notranslate"><span class="pre">fire</span></code>.</p></li>
 </ul>
 <p><strong>Example Constructors</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tools.fire_predictor</span> <span class="kn">import</span> <span class="n">FirePredictor</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">embrs.tools.fire_predictor</span> <span class="kn">import</span> <span class="n">FirePredictor</span>
 
 <span class="c1"># Construct a FirePredictor that will predict 3 hours into the future with no bias</span>
 <span class="c1"># Using default values for fuel_type, time_step_s, and cell_size_m</span>
@@ -475,7 +475,7 @@ document.write(`
 </pre></div>
 </div>
 <p>With this output, you can understand what regions are more likely to ignite, and roughly what time they will ignite. This can be used to inform your custom control class and direct the control strategy.</p>
-<p>Documentation for the fire prediction tool can be found <span class="xref myst">here.</span></p>
+<p>Documentation for the fire prediction tool can be found <a class="reference internal" href="_autosummary/embrs.tools.fire_predictor.html"><span class="doc std std-doc">here.</span></a></p>
 </section>
 </section>
 

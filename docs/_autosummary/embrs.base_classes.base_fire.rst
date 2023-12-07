@@ -1,7 +1,7 @@
-﻿base_classes.base\_fire
-======================
+﻿embrs.base\_classes.base\_fire
+==============================
 
-.. automodule:: base_classes.base_fire
+.. automodule:: embrs.base_classes.base_fire
 
    
    
