@@ -5,8 +5,8 @@ fire_simulator Documentation
    :toctree: _autosummary
    :recursive:
 
-   ~fire_simulator.fire
-   ~fire_simulator.cell
-   ~fire_simulator.fuel
-   ~fire_simulator.logger
-   ~fire_simulator.wind
+   ~embrs.fire_simulator.fire
+   ~embrs.fire_simulator.cell
+   ~embrs.fire_simulator.fuel
+   ~embrs.fire_simulator.logger
+   ~embrs.fire_simulator.wind

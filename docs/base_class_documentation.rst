@@ -5,6 +5,6 @@ base_classes Documentation
    :toctree: _autosummary
    :recursive:
 
-   ~base_classes.agent_base
-   ~base_classes.control_base
-   ~base_classes.base_fire
+   ~embrs.base_classes.agent_base
+   ~embrs.base_classes.control_base
+   ~embrs.base_classes.base_fire

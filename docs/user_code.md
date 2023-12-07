@@ -14,7 +14,7 @@ One of the core features of EMBRS is the ability to import custom control classe
 # Abstract base class for custom control classes:
 
 from abc import ABC, abstractmethod
-from fire_simulator.fire import FireSim
+from embrs.fire_simulator.fire import FireSim
 
 class ControlClass(ABC):
     @abstractmethod

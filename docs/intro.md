@@ -3,28 +3,46 @@
 EMBRS is a real-time fire simulation software that provides users a sandbox for testing fire
 suppression algorithms and strategies in a Python framework.
 
-# Installation
-There are two methods for installing the EMBRS package.
+## Installation
+EMBRS can be installed by downloading source code or via the PyPI package manager with `pip`.
 
-## Pip
-The easiest way to install EMBRS is by using `pip`:
+The simplest method is using `pip` with the following command:
 
 ```bash
-pip install EMBRS
+    pip install embrs
 ```
 
-## Source Code Installation
-If you would like to inspect the source code or make any modifications to the model, you should download from the GitHub repository and then use pip to install it. Run the following commands in your terminal to do so.
+Developers who would like to inspect the source code can install EMBRS by downloading the git repository from GitHub and use `pip` to install it locally. The following terminal commands can be used to do this:
 
 ```bash
+    # Download source code from the 'main' branch
+    git clone -b main https://github.com/AREAL-GT/embrs.git
 
-# Clone git repository
-git clone https://github.gatech.edu/rjdp3/MAS_Fire_Sim_Package.git
-
-# Install EMBRS
-pip install EMBRS
+    # Install EMBRS
+    pip install -e embrs
 
 ```
 
-*TODO: Correct the above commands for actual release repository and package name*
+## Usage
+### Launching EMBRS Applications
+Once EMBRS is installed, to launch the provided EMBRS applications to run a sim, run a visualization, create a map, and create a wind forecast you can use the following terminal commands.
 
+```bash
+    # Run a simulation
+    run_embrs_sim
+    
+    
+    # Run a visualization
+    run_embrs_viz
+    
+    
+    # Create an EMBRS map
+    create_embrs_map
+    
+    
+    # Create a wind forecast
+    create_embrs_wind
+
+```
+
+Upon running these commands you will see GUI windows allowing you to specify each process. Read the rest of this site for information on how to use each.

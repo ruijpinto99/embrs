@@ -5,5 +5,5 @@ Other Documentation
    :toctree: _autosummary
    :recursive:
 
-   utilities.fire_util
-   tools.fire_predictor
+   embrs.utilities.fire_util
+   embrs.tools.fire_predictor
