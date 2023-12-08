@@ -26,4 +26,3 @@ parts:
   chapters:
    - file: fire_modelling
    - file: interpreting_visualizations
-   - file: bibliography
