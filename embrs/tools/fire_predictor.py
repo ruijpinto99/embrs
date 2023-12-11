@@ -12,9 +12,11 @@ towards a more or less conservative prediction.
 from embrs.fire_simulator.fire import FireSim
 from embrs.fire_simulator.wind import Wind
 from embrs.base_classes.base_fire import BaseFireSim
-from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs
+from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs, ControlledBurnParams
+from embrs.utilities.action import *
 
 import numpy as np
+import heapq
 
 class FirePredictor(BaseFireSim):
     """Predictor class responsible for running predictions over a fixed time horizon.
@@ -87,7 +89,9 @@ class FirePredictor(BaseFireSim):
         self.start_time_s = orig_fire.curr_time_s
         self._curr_time_s = self.start_time_s
 
+        self.action_heap = []
         self._future_fires = {}
+        self._reduced_fuel = {}
 
     def generate_noisy_wind(self, wind_forecast: list) -> list:
         """Adds noise to the true wind forecast using a auto-regressive model.
@@ -119,6 +123,9 @@ class FirePredictor(BaseFireSim):
 
         # Update wind
         self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
+
+        if len(self.action_heap) != 0:
+            self.perform_actions()
 
         # Iterate over currently burning cells
         for curr_cell in self._curr_fires:
@@ -158,9 +165,17 @@ class FirePredictor(BaseFireSim):
                         self.set_state_at_cell(neighbor, CellStates.FIRE, curr_cell.fire_type)
 
                         # Add cell to prediction dictionary
-                        self._future_fires[self._curr_time_s].append((neighbor.x_pos, neighbor.y_pos))
+                        if neighbor.fire_type == FireTypes.PRESCRIBED:
+                            self._reduced_fuel[self._curr_time_s].append((neighbor.x_pos, neighbor.y_pos))
 
-            curr_cell.burnable_neighbors.difference_update(neighbors_to_remove)
+                        else:    
+                            self._future_fires[self._curr_time_s].append((neighbor.x_pos, neighbor.y_pos))
+
+            if curr_cell.fire_type == FireTypes.WILD:
+                curr_cell.burnable_neighbors.difference_update(neighbors_to_remove)
+            
+            else:
+                curr_cell._set_fuel_content(curr_cell.fuel_content*ControlledBurnParams.burnout_fuel_frac)
 
         self._iters += 1
 
@@ -180,16 +195,64 @@ class FirePredictor(BaseFireSim):
         if len(self._curr_fires) == 0 or (self.time_step * self.iters) >= self._sim_duration:
             self._finished = True
 
-    def run_prediction(self) -> dict:
+    def perform_actions(self):
+        # Get the closest time step
+
+        print(f"action time: {self.action_heap[0][0]}")
+        print(f"sim time: {self.curr_time_s}")
+
+        if self.action_heap[0][0] >= self.curr_time_s:
+            action = heapq.heappop(self.action_heap)[1]
+            action.perform(self)
+            print("performing action")
+
+
+    def generate_action_sequence(self):
+        action_sequence = []
+
+        for i in range(10):
+            action = SetFuelContent(self.curr_time_s + 3600, i * 100, 100 * i, 0.1)
+            action_sequence.append(action)
+        
+            action = SetFuelMoisture(self.curr_time_s + 5400, i * 150, 150 * i, 0.5)
+            action_sequence.append(action)
+
+            action = SetIgnition(self.curr_time_s + 1800, i * 200, 200 * i, FireTypes.PRESCRIBED)
+            action_sequence.append(action)
+    
+        return action_sequence
+
+    def run_prediction(self, action_sequence:list = None) -> dict:
         """Run a prediction
 
+        :param action_sequence: TODO: FILL IN THIS INPUT
         :return: Dictionary where each key is a time-step and each value is a list of predicted
         ignition locations (x, y) at that time-step. Time-steps start at the time-step the original
             fire when input to the prediction model.
         :rtype: dict
         """
 
+        self.action_heap = []
+
+        action_sequence = self.generate_action_sequence()
+
+        if action_sequence is not None:
+            for action in action_sequence:
+                heapq.heappush(self.action_heap, (action.time, action))
+
         while not self.finished:
             self.iterate()
 
         return self._future_fires
+
+    @property
+    def reduced_fuel_prediction(self) -> dict:
+        """Get the regions predicted to be partially burnt by prescribed burning
+
+        :return: Dictionary where each key is a time-step and each value is a list of predicted
+        reduced fuel locations (x, y) at that time-step. Time-steps start at the time-step the
+        original fire when input to the prediction model.
+        :rtype: dict
+        """
+
+        return self._reduced_fuel
