@@ -1,7 +1,21 @@
-"""Class of templated actions that can be performed on a BaseFireSim object.
+"""Class of templated actions that can be performed on a :class:`~base_classes.base_fire.BaseFireSim` object.
 
 Not required to be used to complete actions, but provide a nice compact way to define action
 sequences.
+
+.. autoclass:: Action
+    :members:
+
+
+.. autoclass:: SetFuelMoisture
+    :members:
+
+.. autoclass:: SetFuelContent
+    :members:
+
+.. autoclass:: SetIgnition
+    :members:
+
 """
 
 from embrs.base_classes.base_fire import BaseFireSim

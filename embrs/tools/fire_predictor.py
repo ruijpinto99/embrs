@@ -211,10 +211,11 @@ class FirePredictor(BaseFireSim):
         """Run a prediction
 
         :param action_sequence: Action sequence that should be completed during the course of 
-        the prediction run. Specify as a list of :class:`~utilities.action.Action` objects.
+                                the prediction run. Specify as a list of
+                                :class:`~utilities.action.Action` objects.
         :return: Dictionary where each key is a time-step and each value is a list of predicted
-        ignition locations (x, y) at that time-step. Time-steps start at the time-step the original
-            fire when input to the prediction model.
+                 ignition locations (x, y) at that time-step. Time-steps start at the time-step the
+                 original fire when input to the prediction model.
         :rtype: dict
         """
 
@@ -236,8 +237,8 @@ class FirePredictor(BaseFireSim):
         """Get the regions predicted to be partially burnt by prescribed burning
 
         :return: Dictionary where each key is a time-step and each value is a list of predicted
-        reduced fuel locations (x, y) at that time-step. Time-steps start at the time-step the
-        original fire when input to the prediction model.
+                 reduced fuel locations (x, y) at that time-step. Time-steps start at the time-step
+                 the original fire when input to the prediction model.
         :rtype: dict
         """
 
