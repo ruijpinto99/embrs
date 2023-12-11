@@ -3,9 +3,9 @@
 To run this example code, start a fire sim and select this file as the "User Module"
 """
 
-from base_classes.control_base import ControlClass
-from fire_simulator.fire import FireSim
-from utilities.fire_util import CellStates
+from embrs.base_classes.control_base import ControlClass
+from embrs.fire_simulator.fire import FireSim
+from embrs.utilities.fire_util import CellStates
 
 import numpy as np
 

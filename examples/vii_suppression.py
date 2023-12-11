@@ -10,12 +10,10 @@ To run this example code, start a fire sim and select this fiel as the "User Mod
 
 import numpy as np
 from sklearn.cluster import KMeans
-import heapq
 
-from base_classes.control_base import ControlClass
-from fire_simulator.fire import FireSim
+from embrs.base_classes.control_base import ControlClass
+from embrs.fire_simulator.fire import FireSim
 from v_sample_agent import SampleAgent
-from utilities.fire_util import FuelConstants as fc
 
 class SuppressionExample(ControlClass):
     def __init__(self, fire:FireSim):

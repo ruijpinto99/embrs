@@ -4,9 +4,9 @@ The prediction tool can be used to inform firefighting decision making.
 To run this example code, start a fire sim and select this file as the "User Module"
 """
 
-from base_classes.control_base import ControlClass
-from fire_simulator.fire import FireSim
-from tools.fire_predictor import FirePredictor
+from embrs.base_classes.control_base import ControlClass
+from embrs.fire_simulator.fire import FireSim
+from embrs.tools.fire_predictor import FirePredictor
 
 class PredictorCode(ControlClass):
     def __init__(self, fire:FireSim):

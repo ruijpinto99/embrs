@@ -14,8 +14,8 @@ To run this example code, start a fire sim and select this file as the "User Mod
 import heapq
 import numpy as np
 
-from base_classes.control_base import ControlClass
-from fire_simulator.fire import FireSim
+from embrs.base_classes.control_base import ControlClass
+from embrs.fire_simulator.fire import FireSim
 from v_sample_agent import SampleAgent
 
 class BurnoutExample(ControlClass):

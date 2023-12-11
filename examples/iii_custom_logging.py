@@ -4,8 +4,8 @@ These log messages will appear in the "messages" section of the status_log.json 
 To run this example code, start a fire sim and select this file as the "User Module"
 """
 
-from base_classes.control_base import ControlClass
-from fire_simulator.fire import FireSim
+from embrs.base_classes.control_base import ControlClass
+from embrs.fire_simulator.fire import FireSim
 
 
 class CustomLogging(ControlClass):

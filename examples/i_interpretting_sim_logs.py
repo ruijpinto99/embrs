@@ -3,8 +3,8 @@
 import pickle
 import msgpack
 import itertools
-from utilities.fire_util import UtilFuncs
-from utilities.fire_util import CellStates
+from embrs.utilities.fire_util import UtilFuncs
+from embrs.utilities.fire_util import CellStates
 
 # Paths to init_fire_state.pkl and pkl log life
 INIT_STATE = '/path to log folder/init_fire_state.pkl'

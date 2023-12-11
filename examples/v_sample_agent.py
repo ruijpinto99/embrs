@@ -6,8 +6,8 @@ and 'vii_suppression.py'
 
 import numpy as np
 
-from base_classes.agent_base import AgentBase
-from utilities.fire_util import FuelConstants as fc
+from embrs.base_classes.agent_base import AgentBase
+from embrs.utilities.fire_util import FuelConstants as fc
 
 class SampleAgent(AgentBase):
     def __init__(self, id: any, x: float, y: float, fire, label=None, marker='*', color='magenta'):
