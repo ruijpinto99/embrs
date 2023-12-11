@@ -11,13 +11,13 @@ from typing import Tuple
 from tqdm import tqdm
 import numpy as np
 from shapely.geometry import shape, LineString
-from .fire_simulator.visualizer import Visualizer
-from .fire_simulator.logger import Logger
-from .fire_simulator.fire import FireSim
-from .fire_simulator.wind import Wind
-from .utilities.file_io import SimFolderSelector, LoaderWindow
-from .utilities.fire_util import UtilFuncs
-from .base_classes.control_base import ControlClass
+from embrs.fire_simulator.visualizer import Visualizer
+from embrs.fire_simulator.logger import Logger
+from embrs.fire_simulator.fire import FireSim
+from embrs.fire_simulator.wind import Wind
+from embrs.utilities.file_io import SimFolderSelector, LoaderWindow
+from embrs.utilities.fire_util import UtilFuncs
+from embrs.base_classes.control_base import ControlClass
 
 def initialize(params: dict) -> Tuple[FireSim, bool, Visualizer]:
     """Initializes a fireSim object and a Visualizer(if selected) based on user inputs

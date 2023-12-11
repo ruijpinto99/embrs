@@ -20,10 +20,10 @@ from scipy.interpolate import RectBivariateSpline
 from scipy import ndimage, stats
 import numpy as np
 
-from .utilities.file_io import MapGenFileSelector
-from .utilities.map_drawer import PolygonDrawer
-from .utilities.fire_util import RoadConstants as rc
-from .utilities.fire_util import FuelConstants as fc
+from embrs.utilities.file_io import MapGenFileSelector
+from embrs.utilities.map_drawer import PolygonDrawer
+from embrs.utilities.fire_util import RoadConstants as rc
+from embrs.utilities.fire_util import FuelConstants as fc
 
 DATA_RESOLUTION = 30 # meters
 
