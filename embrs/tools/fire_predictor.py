@@ -49,11 +49,11 @@ class FirePredictor(BaseFireSim):
             cell_size_m = orig_fire.cell_size * 2
 
         if not isinstance(fuel_type, int) or fuel_type <= 0 or fuel_type > 13:
-            fuel_type = UtilFuncs.get_dominant_fuel_type(orig_fire.base_fuel_map)
-
             if fuel_type != -1:
                 orig_fire.logger.log_message("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
                 print("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
+
+            fuel_type = UtilFuncs.get_dominant_fuel_type(orig_fire.base_fuel_map)
 
         self.bias = bias
 
@@ -90,6 +90,7 @@ class FirePredictor(BaseFireSim):
         self._curr_time_s = self.start_time_s
 
         self.action_heap = []
+        self.partially_burnt = set()
         self._future_fires = {}
         self._reduced_fuel = {}
 
@@ -164,18 +165,22 @@ class FirePredictor(BaseFireSim):
                         neighbor._set_vprop(v_prop)
                         self.set_state_at_cell(neighbor, CellStates.FIRE, curr_cell.fire_type)
 
-                        # Add cell to prediction dictionary
-                        if neighbor.fire_type == FireTypes.PRESCRIBED:
-                            self._reduced_fuel[self._curr_time_s].append((neighbor.x_pos, neighbor.y_pos))
-
-                        else:    
-                            self._future_fires[self._curr_time_s].append((neighbor.x_pos, neighbor.y_pos))
-
             if curr_cell.fire_type == FireTypes.WILD:
                 curr_cell.burnable_neighbors.difference_update(neighbors_to_remove)
             
             else:
                 curr_cell._set_fuel_content(curr_cell.fuel_content*ControlledBurnParams.burnout_fuel_frac)
+                
+                if curr_cell.id not in self.partially_burnt:
+                    fuel_entry = self._reduced_fuel.get(self.curr_time_s)
+
+                    if not fuel_entry:
+                        self._reduced_fuel[self.curr_time_s]  = [((curr_cell.x_pos, curr_cell.y_pos), curr_cell.fuel_content)]
+
+                    else:
+                        fuel_entry.append(((curr_cell.x_pos, curr_cell.y_pos), curr_cell.fuel_content))
+
+                    self.partially_burnt.add(curr_cell.id)
 
         self._iters += 1
 
@@ -196,36 +201,17 @@ class FirePredictor(BaseFireSim):
             self._finished = True
 
     def perform_actions(self):
-        # Get the closest time step
-
-        print(f"action time: {self.action_heap[0][0]}")
-        print(f"sim time: {self.curr_time_s}")
-
-        if self.action_heap[0][0] >= self.curr_time_s:
+        """Perform any actions in specified action sequence that occur at the current simulation time.
+        """
+        while len(self.action_heap) > 0 and self.curr_time_s >= self.action_heap[0][0]:
             action = heapq.heappop(self.action_heap)[1]
             action.perform(self)
-            print("performing action")
-
-
-    def generate_action_sequence(self):
-        action_sequence = []
-
-        for i in range(10):
-            action = SetFuelContent(self.curr_time_s + 3600, i * 100, 100 * i, 0.1)
-            action_sequence.append(action)
-        
-            action = SetFuelMoisture(self.curr_time_s + 5400, i * 150, 150 * i, 0.5)
-            action_sequence.append(action)
-
-            action = SetIgnition(self.curr_time_s + 1800, i * 200, 200 * i, FireTypes.PRESCRIBED)
-            action_sequence.append(action)
-    
-        return action_sequence
 
     def run_prediction(self, action_sequence:list = None) -> dict:
         """Run a prediction
 
-        :param action_sequence: TODO: FILL IN THIS INPUT
+        :param action_sequence: Action sequence that should be completed during the course of 
+        the prediction run. Specify as a list of :class:`~utilities.action.Action` objects.
         :return: Dictionary where each key is a time-step and each value is a list of predicted
         ignition locations (x, y) at that time-step. Time-steps start at the time-step the original
             fire when input to the prediction model.
