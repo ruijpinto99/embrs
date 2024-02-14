@@ -187,6 +187,7 @@ const thebe_selector_output = ".output, .cell_output"
 <li class="toctree-l1 has-children"><a class="reference internal" href="other_documentation.html">Other Documentation</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/embrs.utilities.fire_util.html">embrs.utilities.fire_util</a></li>
 <li class="toctree-l2"><a class="reference internal" href="_autosummary/embrs.tools.fire_predictor.html">embrs.tools.fire_predictor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/embrs.utilities.action.html">embrs.utilities.action</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="example_index.html">Example Index</a></li>
@@ -373,14 +374,16 @@ document.write(`
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.Action">Action (class in embrs.utilities.action)</a>
+</li>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.add_agent">add_agent() (embrs.base_classes.base_fire.BaseFireSim method)</a>
 </li>
       <li><a href="_autosummary/embrs.fire_simulator.logger.html#embrs.fire_simulator.logger.Logger.add_to_agent_cache">add_to_agent_cache() (embrs.fire_simulator.logger.Logger method)</a>
 </li>
-      <li><a href="_autosummary/embrs.fire_simulator.logger.html#embrs.fire_simulator.logger.Logger.add_to_cache">add_to_cache() (embrs.fire_simulator.logger.Logger method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_autosummary/embrs.fire_simulator.logger.html#embrs.fire_simulator.logger.Logger.add_to_cache">add_to_cache() (embrs.fire_simulator.logger.Logger method)</a>
+</li>
       <li><a href="_autosummary/embrs.fire_simulator.fire.html#embrs.fire_simulator.fire.FireSim.agent_list">agent_list (embrs.fire_simulator.fire.FireSim property)</a>
 </li>
       <li><a href="_autosummary/embrs.base_classes.agent_base.html#embrs.base_classes.agent_base.AgentBase">AgentBase (class in embrs.base_classes.agent_base)</a>
@@ -504,8 +507,6 @@ document.write(`
         <li><a href="_autosummary/embrs.fire_simulator.fire.html#module-embrs.fire_simulator.fire">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     embrs.fire_simulator.fuel
 
@@ -513,6 +514,8 @@ document.write(`
         <li><a href="_autosummary/embrs.fire_simulator.fuel.html#module-embrs.fire_simulator.fuel">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     embrs.fire_simulator.logger
 
@@ -532,6 +535,13 @@ document.write(`
 
       <ul>
         <li><a href="_autosummary/embrs.tools.fire_predictor.html#module-embrs.tools.fire_predictor">module</a>
+</li>
+      </ul></li>
+      <li>
+    embrs.utilities.action
+
+      <ul>
+        <li><a href="_autosummary/embrs.utilities.action.html#module-embrs.utilities.action">module</a>
 </li>
       </ul></li>
       <li>
@@ -701,6 +711,8 @@ document.write(`
 </li>
         <li><a href="_autosummary/embrs.tools.fire_predictor.html#module-embrs.tools.fire_predictor">embrs.tools.fire_predictor</a>
 </li>
+        <li><a href="_autosummary/embrs.utilities.action.html#module-embrs.utilities.action">embrs.utilities.action</a>
+</li>
         <li><a href="_autosummary/embrs.utilities.fire_util.html#module-embrs.utilities.fire_util">embrs.utilities.fire_util</a>
 </li>
       </ul></li>
@@ -724,6 +736,18 @@ document.write(`
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetFuelContent.perform">perform() (embrs.utilities.action.SetFuelContent method)</a>
+
+      <ul>
+        <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetFuelMoisture.perform">(embrs.utilities.action.SetFuelMoisture method)</a>
+</li>
+        <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetIgnition.perform">(embrs.utilities.action.SetIgnition method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_autosummary/embrs.tools.fire_predictor.html#embrs.tools.fire_predictor.FirePredictor.perform_actions">perform_actions() (embrs.tools.fire_predictor.FirePredictor method)</a>
+</li>
       <li><a href="_autosummary/embrs.base_classes.control_base.html#embrs.base_classes.control_base.ControlClass.process_state">process_state() (embrs.base_classes.control_base.ControlClass method)</a>
 </li>
   </ul></td>
@@ -732,12 +756,14 @@ document.write(`
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="_autosummary/embrs.utilities.fire_util.html#embrs.utilities.fire_util.RoadConstants">RoadConstants (class in embrs.utilities.fire_util)</a>
+      <li><a href="_autosummary/embrs.tools.fire_predictor.html#embrs.tools.fire_predictor.FirePredictor.reduced_fuel_prediction">reduced_fuel_prediction (embrs.tools.fire_predictor.FirePredictor property)</a>
 </li>
-      <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.roads">roads (embrs.base_classes.base_fire.BaseFireSim property)</a>
+      <li><a href="_autosummary/embrs.utilities.fire_util.html#embrs.utilities.fire_util.RoadConstants">RoadConstants (class in embrs.utilities.fire_util)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.roads">roads (embrs.base_classes.base_fire.BaseFireSim property)</a>
+</li>
       <li><a href="_autosummary/embrs.fire_simulator.cell.html#embrs.fire_simulator.cell.Cell.row">row (embrs.fire_simulator.cell.Cell property)</a>
 </li>
       <li><a href="_autosummary/embrs.tools.fire_predictor.html#embrs.tools.fire_predictor.FirePredictor.run_prediction">run_prediction() (embrs.tools.fire_predictor.FirePredictor method)</a>
@@ -772,15 +798,21 @@ document.write(`
 </li>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.set_state_at_indices">set_state_at_indices() (embrs.base_classes.base_fire.BaseFireSim method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.set_state_at_xy">set_state_at_xy() (embrs.base_classes.base_fire.BaseFireSim method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.set_wild_fire_at_cell">set_wild_fire_at_cell() (embrs.base_classes.base_fire.BaseFireSim method)</a>
 </li>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.set_wild_fire_at_indices">set_wild_fire_at_indices() (embrs.base_classes.base_fire.BaseFireSim method)</a>
 </li>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.set_wild_fire_at_xy">set_wild_fire_at_xy() (embrs.base_classes.base_fire.BaseFireSim method)</a>
+</li>
+      <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetFuelContent">SetFuelContent (class in embrs.utilities.action)</a>
+</li>
+      <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetFuelMoisture">SetFuelMoisture (class in embrs.utilities.action)</a>
+</li>
+      <li><a href="_autosummary/embrs.utilities.action.html#embrs.utilities.action.SetIgnition">SetIgnition (class in embrs.utilities.action)</a>
 </li>
       <li><a href="_autosummary/embrs.base_classes.base_fire.html#embrs.base_classes.base_fire.BaseFireSim.shape">shape (embrs.base_classes.base_fire.BaseFireSim property)</a>
 </li>

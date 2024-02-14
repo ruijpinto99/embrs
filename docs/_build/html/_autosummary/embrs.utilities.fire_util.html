@@ -190,6 +190,7 @@ const thebe_selector_output = ".output, .cell_output"
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../other_documentation.html">Other Documentation</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">embrs.utilities.fire_util</a></li>
 <li class="toctree-l2"><a class="reference internal" href="embrs.tools.fire_predictor.html">embrs.tools.fire_predictor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embrs.utilities.action.html">embrs.utilities.action</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../example_index.html">Example Index</a></li>
@@ -545,6 +546,7 @@ length s.</p>
 <dd><p>Various values and dictionaries pertaining to modelling of fuel types.</p>
 <dl class="simple">
 <dt>Attributes:</dt><dd><ul class="simple">
+<li><p><strong>burnout_thresh</strong> (float): fuel content which dictates what is considered to be a burned out cell.</p></li>
 <li><p><strong>ch_h_to_m_min</strong> (float): float that converts chains/hr to m/min.</p></li>
 <li><p><strong>fbfm_13_keys</strong> (list): list of ints corresponding to each of Anderson’s 13 FBFMs.</p></li>
 <li><p><strong>fuel_names</strong> (dict): dictionary where keys are ints for each FBFM and values are the names of each fuel type.</p></li>

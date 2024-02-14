@@ -64,7 +64,7 @@ const thebe_selector_output = ".output, .cell_output"
     <script>DOCUMENTATION_OPTIONS.pagename = '_autosummary/embrs.tools.fire_predictor';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Example Index" href="../example_index.html" />
+    <link rel="next" title="embrs.utilities.action" href="embrs.utilities.action.html" />
     <link rel="prev" title="embrs.utilities.fire_util" href="embrs.utilities.fire_util.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -190,6 +190,7 @@ const thebe_selector_output = ".output, .cell_output"
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../other_documentation.html">Other Documentation</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="embrs.utilities.fire_util.html">embrs.utilities.fire_util</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">embrs.tools.fire_predictor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="embrs.utilities.action.html">embrs.utilities.action</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../example_index.html">Example Index</a></li>
@@ -443,19 +444,42 @@ granularity of the prediction result. If None, the cell size of orig_fire will b
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="embrs.tools.fire_predictor.FirePredictor.run_prediction">
-<span class="sig-name descname"><span class="pre">run_prediction</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#embrs.tools.fire_predictor.FirePredictor.run_prediction" title="Permalink to this definition">#</a></dt>
-<dd><p>Run a prediction</p>
+<dt class="sig sig-object py" id="embrs.tools.fire_predictor.FirePredictor.perform_actions">
+<span class="sig-name descname"><span class="pre">perform_actions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#embrs.tools.fire_predictor.FirePredictor.perform_actions" title="Permalink to this definition">#</a></dt>
+<dd><p>Perform any actions in specified action sequence that occur at the current simulation time.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="embrs.tools.fire_predictor.FirePredictor.reduced_fuel_prediction">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reduced_fuel_prediction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#embrs.tools.fire_predictor.FirePredictor.reduced_fuel_prediction" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the regions predicted to be partially burnt by prescribed burning</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Dictionary where each key is a time-step and each value is a list of predicted</p>
+<dd class="field-odd"><p>Dictionary where each key is a time-step and each value is a list of predicted
+reduced fuel locations (x, y) at that time-step. Time-steps start at the time-step
+the original fire when input to the prediction model.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
 </dd>
 </dl>
-<dl class="simple">
-<dt>ignition locations (x, y) at that time-step. Time-steps start at the time-step the original</dt><dd><p>fire when input to the prediction model.</p>
-</dd>
-</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="embrs.tools.fire_predictor.FirePredictor.run_prediction">
+<span class="sig-name descname"><span class="pre">run_prediction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action_sequence</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#embrs.tools.fire_predictor.FirePredictor.run_prediction" title="Permalink to this definition">#</a></dt>
+<dd><p>Run a prediction</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>action_sequence</strong> – Action sequence that should be completed during the course of 
+the prediction run. Specify as a list of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Action</span></code> objects.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary where each key is a time-step and each value is a list of predicted
+ignition locations (x, y) at that time-step. Time-steps start at the time-step the
+original fire when input to the prediction model.</p>
+</dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
@@ -515,11 +539,11 @@ granularity of the prediction result. If None, the cell size of orig_fire will b
       </div>
     </a>
     <a class="right-next"
-       href="../example_index.html"
+       href="embrs.utilities.action.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Example Index</p>
+        <p class="prev-next-title">embrs.utilities.action</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
