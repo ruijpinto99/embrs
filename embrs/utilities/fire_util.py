@@ -56,6 +56,7 @@ class FuelConstants:
     """Various values and dictionaries pertaining to modelling of fuel types.
 
     Attributes:
+        - **burnout_thresh** (float): fuel content which dictates what is considered to be a burned out cell.
         - **ch_h_to_m_min** (float): float that converts chains/hr to m/min.
         - **fbfm_13_keys** (list): list of ints corresponding to each of Anderson's 13 FBFMs.
         - **fuel_names** (dict): dictionary where keys are ints for each FBFM and values are the names of each fuel type.
@@ -68,6 +69,8 @@ class FuelConstants:
         - **fuel_color_mapping** (dict): dictionary mapping each fuel type to the display color for visualizations.
 
     """
+    burnout_thresh = 0.01
+
     # Conversion from chains/hr to m/min
     ch_h_to_m_min = 0.33528
 

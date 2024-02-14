@@ -8,7 +8,7 @@ from tqdm import tqdm
 import numpy as np
 
 from embrs.base_classes.base_fire import BaseFireSim
-from embrs.utilities.fire_util import CellStates, FireTypes
+from embrs.utilities.fire_util import CellStates, FireTypes, FuelConstants
 from embrs.utilities.fire_util import ControlledBurnParams
 from embrs.fire_simulator.cell import Cell
 from embrs.fire_simulator.wind import Wind
@@ -81,7 +81,7 @@ class FireSim(BaseFireSim):
         print("Simulation Initializing...")
 
         # Fuel fraction to be considered BURNT
-        self.burnout_thresh = 0.1
+        self.burnout_thresh =FuelConstants.burnout_thresh
 
         self.logger = None
         self.progress_bar = None
@@ -107,6 +107,8 @@ class FireSim(BaseFireSim):
                 topography_res, wind_vec, roads, fire_breaks,
                 time_step, cell_size, duration_s, initial_ignition,
                 size, display_freq_s= display_freq_s)
+
+        self._init_iteration()
 
     def iterate(self):
         """Step forward the fire simulation a single time-step

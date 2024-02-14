@@ -221,8 +221,6 @@ class FirePredictor(BaseFireSim):
 
         self.action_heap = []
 
-        action_sequence = self.generate_action_sequence()
-
         if action_sequence is not None:
             for action in action_sequence:
                 heapq.heappush(self.action_heap, (action.time, action))
