@@ -17,6 +17,7 @@ from embrs.utilities.action import *
 
 import numpy as np
 import heapq
+import copy
 
 class FirePredictor(BaseFireSim):
     """Predictor class responsible for running predictions over a fixed time horizon.
@@ -86,6 +87,7 @@ class FirePredictor(BaseFireSim):
                 time_step_s, cell_size_m, time_horizon_s, initial_ignition,
                 sim_size, burnt_cells, display_freq_s)
 
+
         self.start_time_s = orig_fire.curr_time_s
         self._curr_time_s = self.start_time_s
 
@@ -93,6 +95,63 @@ class FirePredictor(BaseFireSim):
         self.partially_burnt = set()
         self._future_fires = {}
         self._reduced_fuel = {}
+
+        # Store initial state for use in reset()
+        
+        # Create dictionary storing deepcopies of all cell objects
+        self.init_state_dict = {}
+        for id in self.cell_dict.keys():
+            cell = self.cell_dict[id]
+            init_state = cell.get_copy_of_state()
+            self.init_state_dict[id] = init_state
+
+        # Create list storing ids of cells in initial ignition region
+        self.init_curr_fires_cache_ids = []
+
+        for cell in self._curr_fires_cache:
+            self.init_curr_fires_cache_ids.append(cell.id)
+
+        # Create list storing ids of cells that are initially burnt
+        self.init_burnt_cells_ids = []
+
+        for cell in self._burnt_cells:
+            self.init_burnt_cells_ids.append(cell.id)
+
+    def reset(self) -> None:
+        """Reset prediction back to starting state
+        """
+        self._iters = 0
+        self.action_heap = []
+        self.partially_burnt = set()
+        self._future_fires = {}
+        self._reduced_fuel = {}
+
+        self._curr_fires = set()
+        self._burnt_cells = set()
+        self._curr_fires_cache = []
+
+        self._curr_fires_anti_cache = []
+
+        for j in range(self._shape[1]):
+            for i in range(self._shape[0]):
+                cell = self._cell_grid[i][j]
+
+                init_state = self.init_state_dict[cell.id]
+
+                cell._set_state(init_state.state)
+                cell._set_fuel_content(init_state.fuel_content)
+                cell._burnable_neighbors = set(cell.neighbors)
+                cell._set_dead_m(init_state.dead_m)
+
+                if cell.id in self.init_curr_fires_cache_ids:
+                    self._curr_fires_cache.append(cell)
+                
+                if cell.id in self.init_burnt_cells_ids:
+                    self._burnt_cells.append(cell)
+
+        self._curr_time_s = self.start_time_s
+
+        self._finished = False
 
     def generate_noisy_wind(self, wind_forecast: list) -> list:
         """Adds noise to the true wind forecast using a auto-regressive model.
@@ -137,6 +196,7 @@ class FirePredictor(BaseFireSim):
 
             # iterate over burnable neighbors
             neighbors_to_remove = []
+
             for neighbor_id, (dx, dy) in curr_cell.burnable_neighbors:
                 neighbor = self._cell_dict[neighbor_id]
 
