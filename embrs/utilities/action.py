@@ -74,7 +74,9 @@ class SetFuelMoisture(Action):
         :param fire: Fire instance to perform the action on.
         :type fire: BaseFireSim
         """
-        fire.set_fuel_moisture_at_xy(self.loc[0], self.loc[1], self.moisture)
+        cell = fire.get_cell_from_xy(self.loc[0], self.loc[1], oob_ok=True)
+        if cell is not None:
+            fire.set_fuel_moisture_at_xy(self.loc[0], self.loc[1], self.moisture)
         
 class SetFuelContent(Action):
     """Class defining the action of setting the fuel content at a location.
@@ -102,7 +104,9 @@ class SetFuelContent(Action):
         :param fire: Fire instance to perform the action on.
         :type fire: BaseFireSim
         """
-        fire.set_fuel_content_at_xy(self.loc[0], self.loc[1], self.content)
+        cell = fire.get_cell_from_xy(self.loc[0], self.loc[1], oob_ok=True)
+        if cell is not None:
+            fire.set_fuel_content_at_cell(cell, self.content)
 
 class SetIgnition(Action):
     """Class defining the action of starting an ignition at a location.
@@ -130,8 +134,11 @@ class SetIgnition(Action):
         :param fire: Fire instance to perform the action on.
         :type fire: BaseFireSim
         """
-        if self.fire_type == FireTypes.PRESCRIBED:
-            fire.set_prescribed_fire_at_xy(self.loc[0], self.loc[1])
 
-        else:
-            fire.set_wild_fire_at_xy(self.loc[0], self.loc[1])
+        cell = fire.get_cell_from_xy(self.loc[0]. self.loc[1])
+        if cell is not None:
+            if self.fire_type == FireTypes.PRESCRIBED:
+                fire.set_prescribed_fire_at_xy(self.loc[0], self.loc[1])
+
+            else:
+                fire.set_wild_fire_at_xy(self.loc[0], self.loc[1])
