@@ -138,8 +138,8 @@ class FireSim(BaseFireSim):
                     prob, v_prop = self._calc_prob(curr_cell, neighbor, (dx, dy))
 
                     if np.random.random() < prob:
-                        neighbor._set_vprop(v_prop)
                         self.set_state_at_cell(neighbor, CellStates.FIRE, curr_cell.fire_type)
+                        neighbor._set_vprop(v_prop)
                         # Add cell to update dictionary
                         self._updated_cells[neighbor.id] = neighbor
 
@@ -168,7 +168,8 @@ class FireSim(BaseFireSim):
         self._curr_updates.extend(self._soaked)
         self._soaked = []
         self._iters += 1
-        self.logger.add_to_cache(self._curr_updates.copy(), self.curr_time_s)
+        if self.logger:
+            self.logger.add_to_cache(self._curr_updates.copy(), self.curr_time_s)
 
         if self.agents_added:
             self.logger.add_to_agent_cache(self._get_agent_updates(), self.curr_time_s)
@@ -259,7 +260,8 @@ class FireSim(BaseFireSim):
             self.progress_bar.close()
 
             if len(self._curr_fires) == 0:
-                self.logger.log_message("Fire extinguished! Terminating early.")
+                if self.logger:
+                    self.logger.log_message("Fire extinguished! Terminating early.")
             return True
 
         return False

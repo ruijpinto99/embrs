@@ -68,7 +68,7 @@ class BaseFireSim:
     :param initial_ignition: List of shapely polygons that represent the regions of the sim that
                              should start as initially on fire.
     :type initial_ignition: list
-    :param size: Size of the simulation backing array (rows, cols)
+    :param size: Size of the simulation region (width_m, height_m)
     :type size: tuple
     :param display_freq_s: The amount of time (in seconds) between updating the real-time
                            visualizer, only used if real-time visualization is selected, defaults
@@ -173,7 +173,7 @@ class BaseFireSim:
 
             for row in range(min_row, max_row + 1):
                 for col in range(min_col, max_col + 1):
-                    if 0 <= row < size[1] and 0 <= col < size[0]:
+                    if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
                         cell = self._cell_grid[row, col]
                         if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell.fuel_type.fuel_type <= 13:
                             cell._set_fire_type(FireTypes.WILD)
@@ -192,7 +192,7 @@ class BaseFireSim:
 
                 for row in range(min_row, max_row + 1):
                     for col in range(min_col, max_col + 1):
-                        if 0 <= row < size[1] and 0 <= col < size[0]:
+                        if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
                             cell = self._cell_grid[row, col]
                             if polygon.contains(Point(cell.x_pos, cell.y_pos)):
                                 cell._set_state(CellStates.BURNT)
@@ -229,7 +229,7 @@ class BaseFireSim:
                             road_cell._set_state(CellStates.FUEL)
                         road_cell._set_fuel_content(rc.road_fuel_vals[road[1]])
 
-        print("Initialization complete...")
+        # print("Initialization complete...")
 
     def _add_cell_neighbors(self):
         """Populate the "neighbors" property of each cell in the simulation with each cell's
@@ -414,15 +414,15 @@ class BaseFireSim:
 
 
     def check_if_burnable(self, curr_cell, neighbor):
-        if curr_cell.fire_type == FireTypes.WILD:
-            if neighbor.state == CellStates.FUEL or neighbor.fire_type == FireTypes.PRESCRIBED:
+        if curr_cell._fire_type == FireTypes.WILD:
+            if neighbor._state == CellStates.FUEL or neighbor._fire_type == FireTypes.PRESCRIBED:
                 # Check to make sure that neighbor is a combustible type
-                if neighbor.fuel_type.fuel_type <= 13:
+                if neighbor._fuel_type.fuel_type <= 13:
                     return True
 
-        elif curr_cell.fire_type == FireTypes.PRESCRIBED:
-            if neighbor.state == CellStates.FUEL and neighbor.fuel_content > ControlledBurnParams.min_burnable_fuel_content:
-                if neighbor.fuel_type.fuel_type <= 13:
+        elif curr_cell._fire_type == FireTypes.PRESCRIBED:
+            if neighbor._state == CellStates.FUEL and neighbor._fuel_content > ControlledBurnParams.min_burnable_fuel_content:
+                if neighbor._fuel_type.fuel_type <= 13:
                     return True
 
         return False
@@ -523,8 +523,10 @@ class BaseFireSim:
         # If no cell contains the point and oob_ok is False, raise an error
         if not oob_ok:
             msg = f'Point ({x_m}, {y_m}) is outside the grid.'
-
-            self.logger.log_message(f"Following error occurred in 'FireSim.get_cell_from_xy()': {msg}")
+            
+            if self.logger:
+                self.logger.log_message(f"Following error occurred in 'FireSim.get_cell_from_xy()': {msg}")
+            
             raise ValueError(msg)
 
         return None
@@ -550,8 +552,9 @@ class BaseFireSim:
             msg = (f"Row and column must be integer index values. "
                 f"Input was {type(row)}, {type(col)}")
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.get_cell_from_indices(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.get_cell_from_indices(): "
+                                        f"{msg} Program terminated.")
             raise TypeError(msg)
 
         if col < 0 or row < 0 or row >= self._grid_height or col >= self._grid_width:
@@ -559,8 +562,9 @@ class BaseFireSim:
                 f"are out of bounds for grid of size "
                 f"{self._grid_height}, {self._grid_width}")
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.get_cell_from_indices(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.get_cell_from_indices(): "
+                                        f"{msg} Program terminated.")
             raise ValueError(msg)
 
         return self._cell_grid[row, col]
@@ -579,7 +583,7 @@ class BaseFireSim:
                       :py:attr:`FireTypes.WILD`
         :type state: :class:`~utilities.fire_util.CellStates`
         """
-        cell = self.get_cell_from_xy(x_m, y_m)
+        cell = self.get_cell_from_xy(x_m, y_m, oob_ok=True)
         self.set_state_at_cell(cell, state)
 
     def set_state_at_indices(self, row: int, col: int, state: CellStates):
@@ -625,15 +629,19 @@ class BaseFireSim:
         if not isinstance(cell, Cell):
             msg = f"'cell' must be of type 'Cell' not {type(cell)}"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise TypeError(msg)
 
         if cell.id not in self._cell_dict:
             msg = f"{cell} is not a valid cell in the current fire Sim"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise ValueError(msg)
 
         if not isinstance(state, int) or 0 > state > 2:
@@ -643,16 +651,20 @@ class BaseFireSim:
                 f"fireUtil.CellStates.FIRE or 0, 1, 2"
             )
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise TypeError(msg)
 
         if not isinstance(fire_type, int) or 0 > fire_type > 1:
             msg = (f"{fire_type} is not a valid fire type. Must be of type int. "
                 f"Valid states: fireUtil.FireTypes.WILD, fireUtil.FireTypes.PRESCRIBED or 0, 1")
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_state_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise TypeError(msg)
 
         # Remove cell from data structures related to previous state
@@ -755,7 +767,7 @@ class BaseFireSim:
         :param fuel_content: desired fuel content at point (x_m, y_m) between 0 and 1. 
         :type fuel_content: float
         """
-        cell = self.get_cell_from_xy(x_m, y_m)
+        cell = self.get_cell_from_xy(x_m, y_m, oob_ok = True)
         self.set_fuel_content_at_cell(cell, fuel_content)
 
     def set_fuel_content_at_indices(self, row: int, col: int, fuel_content: float):
@@ -787,23 +799,29 @@ class BaseFireSim:
         if not isinstance(cell, Cell):
             msg = f"'cell' must be of type Cell not {type(cell)}"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise TypeError(msg)
 
         if cell.id not in self._cell_dict:
             msg = f"{cell} is not a valid cell in the current fire Sim"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise ValueError(msg)
 
         if fuel_content < 0 or fuel_content > 1:
             msg = (f"'fuel_content' must be a float between 0 and 1. "
                 f"{fuel_content} was provided as input")
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_content_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise ValueError(msg)
 
         cell._set_fuel_content(fuel_content)
@@ -822,7 +840,8 @@ class BaseFireSim:
         :param fuel_moisture: desired fuel moisture at point (x_m, y_m), between 0 and 1.
         :type fuel_moisture: float
         """
-        cell = self.get_cell_from_xy(x_m, y_m)
+
+        cell = self.get_cell_from_xy(x_m, y_m, oob_ok=True)
         self.set_fuel_moisture_at_cell(cell, fuel_moisture)
 
     def set_fuel_moisture_at_indices(self, row: int, col: int, fuel_moisture: float):
@@ -853,23 +872,29 @@ class BaseFireSim:
         if not isinstance(cell, Cell):
             msg = f"'cell' must be of type Cell not {type(cell)}"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise TypeError(msg)
 
         if cell.id not in self._cell_dict:
             msg = f"{cell} is not a valid cell in the current fire Sim"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise ValueError(msg)
 
         if fuel_moisture < 0 or fuel_moisture > 1:
             msg = (f"'fuel_moisture' must be a float between 0 and 1. "
                 f"{fuel_moisture} was provided as input")
-
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
-                                    f"{msg} Program terminated.")
+            
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.set_fuel_moisture_at_cell(): "
+                                        f"{msg} Program terminated.")
+            
             raise ValueError(msg)
 
         cell._set_dead_m(fuel_moisture)
@@ -890,12 +915,14 @@ class BaseFireSim:
         if isinstance(agent, AgentBase):
             self._agent_list.append(agent)
             self._agents_added = True
-            self.logger.log_message(f"Agent with id {agent.id} added to agent list.")
+            if self.logger:
+                self.logger.log_message(f"Agent with id {agent.id} added to agent list.")
         else:
             msg = "'agent' must be an instance of 'AgentBase' or a subclass"
 
-            self.logger.log_message(f"Following erorr occurred in 'FireSim.add_agent(): "
-                                    f"{msg} Program terminated.")
+            if self.logger:
+                self.logger.log_message(f"Following erorr occurred in 'FireSim.add_agent(): "
+                                        f"{msg} Program terminated.")
             raise TypeError(msg)
 
     def get_curr_wind_vec(self) -> list:
