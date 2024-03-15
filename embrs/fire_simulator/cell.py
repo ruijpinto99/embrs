@@ -12,6 +12,8 @@ from embrs.utilities.fire_util import CellStates, FireTypes
 from embrs.utilities.fire_util import HexGridMath as hex
 from embrs.fire_simulator.fuel import Fuel
 
+import copy
+
 class Cell:
     """Class representation of the discrete cells that make up the fire sim. This holds the state
     of each cell as well as the relevant fire spread parameters. Cells are regular hexagons in the
@@ -71,7 +73,6 @@ class Cell:
         self._state = fuel_type.init_state
         self.cont_state = 0 # continuous state, only used for FirePrediction model
 
-        self.has_neighbor = True
         self._neighbors = []
         self._burnable_neighbors = []
 
@@ -87,6 +88,17 @@ class Cell:
 
         else:
             self.mapping = hex.odd_neighborhood_mapping
+
+        self.initial_state = None
+
+    def get_copy_of_state(self):
+        return copy.deepcopy(self)
+
+    def reset(self):
+        if self.initial_state:
+            return self.initial_state
+        else:
+            raise ValueError("Initial state not stored.")
 
     def _set_elev(self, z: float):
         """Set the elevation of a cell
