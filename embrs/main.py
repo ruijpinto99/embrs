@@ -158,7 +158,8 @@ def run_sim(fire: FireSim, viz: Visualizer, progress_bar: tqdm, loader_window: L
 
         user = UserCodeClass(fire)  # Construct the user object
 
-    fire.logger.start_status_log()
+    if fire.logger:
+        fire.logger.start_status_log()
 
     while not fire.finished:
 
@@ -187,10 +188,13 @@ def run_sim(fire: FireSim, viz: Visualizer, progress_bar: tqdm, loader_window: L
     msg = (f"Simulation complete. Sim time: {UtilFuncs.get_time_str(fire.curr_time_s)}, "
         f"took {UtilFuncs.get_time_str(elapsed, True)} seconds to compute.")
 
-    fire.logger.log_message(msg)
+    if fire.logger:
+        fire.logger.log_message(msg)
 
     loader_window.set_text(f"Saving log file for simulation ({i+1}/{num_runs})")
-    fire.logger.finish(fire)
+    
+    if fire.logger:
+        fire.logger.finish(fire)
 
 def handle_interrupt(logger, fire):
     """Function to handle user interrupts while a sim is running.
