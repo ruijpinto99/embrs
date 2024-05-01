@@ -108,6 +108,7 @@ with open(action_filename, 'r+b') as f:
     mm.close()
 
 # Initialize and set indices within the loop
+id_ctr = 0
 for i in range(rows):
     for j in range(cols):
         if np.random.rand() < 0.5:
@@ -122,7 +123,7 @@ for i in range(rows):
 
         y = i * cell_size * 1.5
 
-        cells[i, j]['id'] = i * j
+        cells[i, j]['id'] = id_ctr
         cells[i, j]['state'] = state
         cells[i, j]['fuelType'] = 2
         cells[i, j]['fuelContent'] = 0.5
@@ -134,6 +135,7 @@ for i in range(rows):
         cells[i, j]['indices']['j'] = j
         cells[i, j]['changed'] = False
 
+        id_ctr += 1
 # Write the array to a memory-mapped file
 cell_filename = 'cells.dat'
 file_size = cells.nbytes

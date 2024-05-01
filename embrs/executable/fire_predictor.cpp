@@ -40,6 +40,7 @@ PredMap prediction;
 std::vector<std::vector<Cell*>> cellGrid; // (rows, std::vector<Cell*>(cols));
 std::priority_queue<Action*, std::vector<Action*>, ActionComparator> action_queue;
 std::unordered_map<std::tuple<int,int>, CacheEntry, TupleHash> relational_dict;
+std::unordered_map<int, std::vector<std::pair<int, int>>> neighbor_map;
 std::vector<WindVec> wind_forecast;
 WindVec curr_wind;
 bool wind_changed = false;
@@ -373,19 +374,19 @@ std::pair<double, double> calc_prob(Cell* curr_cell, Cell* neighbor) {
 	return {curr_entry.prob, curr_entry.v_prop};
 }
 
-std::vector<Cell*> get_neighbors(int i, int j) {
+std::vector<std::pair<int, int>> get_neighbors(int i, int j) {
     // Select the appropriate neighborhood based on the row index
     const std::vector<std::pair<int, int>>& neighborhood = (i % 2 == 0) ? HexUtil::even_neighborhood : HexUtil::odd_neighborhood;
 
 	// Populate neighbors vector
-    std::vector<Cell*> neighbors;
+    std::vector<std::pair<int, int>> neighbors;
     for (const auto& offset : neighborhood) {
         int ni = i + offset.first;
         int nj = j + offset.second;
 
         // Check boundaries
         if (ni >= 0 && ni < cellGrid.size() && nj >= 0 && nj < cellGrid[ni].size()) {
-            neighbors.push_back(cellGrid[ni][nj]);
+            neighbors.push_back({ni, nj});
         }
     }
 
@@ -433,18 +434,16 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 	[&](Cell* cell) {
 		// Get indices of current cell
 		std::pair<int, int> indices = cell->indices;
-		// Get neighbors of current cell // TODO: doing this every iteration is very inefficient
-		std::vector<Cell*> neighbors = get_neighbors(indices.first, indices.second);
-		bool has_burnable_neighbors = false;
-
+		// Get neighbors of current cell
+		std::vector<std::pair<int, int>> neighbors = neighbor_map.at(cell->id);
+		
 		// Loop through neighbors of fires
-		for (Cell* neighbor : neighbors) {
+		for (std::pair<int, int> n_idx : neighbors) {
+			Cell* neighbor = cellGrid[n_idx.first][n_idx.second];
 			if (neighbor->state == FUEL || 
 				cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE ||
 				cell->state == PRESCRIBED_FIRE && neighbor->fuelContent > ControlledBurnParams::min_burnable_fuel_content) {
 				
-				has_burnable_neighbors = true;
-
 				// Calculate ignition prob
 				std::pair<float, float> prob_output = calc_prob(cell, neighbor);
 
@@ -465,6 +464,12 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 					// Add to predicted ignitions output
 					add_cell_to_pred(prediction, sim_time, {neighbor->position.x, neighbor->position.y});
 				}
+			} else {
+				// Remove neighbor from neighbor map
+				neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), n_idx), neighbors.end());
+
+				// Update neighbor map
+				neighbor_map[cell->id] = neighbors;
 			}
 
 			if (cell->state == PRESCRIBED_FIRE) {
@@ -474,7 +479,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 			}
 		}
 
-		return !has_burnable_neighbors; // Return true if cell should be removed
+		return neighbors.empty(); // Return true if cell should be removed
 	});
 
 	// Erase cells without burnable neighbors from curr_fires
@@ -549,6 +554,8 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             cellGrid[i][j] = cells + i * cols + j;
+			std::vector<std::pair<int, int>> neighbors = get_neighbors(i, j);
+			neighbor_map[cellGrid[i][j]->id] = neighbors;
         }
     }
 
@@ -563,7 +570,6 @@ int main(int argc, char* argv[]) {
     }
 
     close(fd);
-
 
 	// Load actions from input file
 	size = num_actions * sizeof(Action);
