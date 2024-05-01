@@ -43,6 +43,7 @@ std::unordered_map<std::tuple<int,int>, CacheEntry, TupleHash> relational_dict;
 std::unordered_map<int, std::vector<std::pair<int, int>>> neighbor_map;
 std::vector<WindVec> wind_forecast;
 WindVec curr_wind;
+std::pair<double, double> wind_vec;
 bool wind_changed = false;
 double bias, horizon, t_step, c_size, wind_forecast_t_step;
 int rows, cols, num_actions;
@@ -255,11 +256,8 @@ std::pair<double, double> calc_wind_effect(Cell* curr_cell, Cell* neighbor) {
 	// Get the unit vector pointing from curr_cell to neighbor
 	std::pair<double, double> disp_vec = mapping.at({di, dj});
 
-	// Calculate the current wind vector // TODO: may be more efficient to calculate this just once
-	std::pair<double, double> vec = {curr_wind.mag_m_s * std::cos(curr_wind.dir_rad), curr_wind.mag_m_s * std::sin(curr_wind.dir_rad)};
-
 	// Calculate dot projection between unit vector and wind vector
-	double dot_proj = disp_vec.first * vec.first + disp_vec.second * vec.second;
+	double dot_proj = disp_vec.first * wind_vec.first + disp_vec.second * wind_vec.second;
 	
 	// Calculate velocity adjustmet
 	double k_w = std::max(0.0, std::exp(0.1783 * dot_proj) - 0.486);
@@ -269,13 +267,12 @@ std::pair<double, double> calc_wind_effect(Cell* curr_cell, Cell* neighbor) {
 	if (curr_wind.mag_m_s == 0) {
 		alpha_w = 1;
 	} else {
-		double cos_rel_angle = dot_proj / (norm(disp_vec) * norm(vec));
+		double cos_rel_angle = dot_proj / (norm(disp_vec) * norm(wind_vec));
 		double rel_angle = std::acos(cos_rel_angle);
 		rel_angle = rel_angle * (180.0 / M_PI);
 
 		double adj_vel_kmh = std::max(curr_wind.mag_m_s * 3.6 - 8, 0.0);
 		alpha_w = interpolate_wind_adjustment(adj_vel_kmh, rel_angle);
-
 	}
 
 	return {alpha_w, k_w};
@@ -403,6 +400,7 @@ bool update_wind(double sim_time) {
 		curr_wind_index = curr_index;
 
 		curr_wind = wind_forecast[curr_wind_index];
+		wind_vec = {curr_wind.mag_m_s * std::cos(curr_wind.dir_rad), curr_wind.mag_m_s * std::sin(curr_wind.dir_rad)};
 		
 		return true;
 	}
