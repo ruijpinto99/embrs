@@ -15,6 +15,7 @@
 #include <cmath>
 #include <algorithm>
 #include <queue>
+# include <libgen.h>
 
 using namespace std;
 
@@ -92,8 +93,14 @@ Cell* get_cell_from_xy(std::pair<float, float> xy_pos) {
 	int row = qr.second;
 	int col = qr.first + row / 2.0;
 
-	// Return cell at calculated indices
-	return cellGrid[row][col];
+    if (row >= 0 && row < cellGrid.size() && col >= 0 && col < cellGrid[row].size()) {
+        // Return cell at calculated indices
+        return cellGrid[row][col];
+
+	} else {
+		// Return nullptr if out of bounds
+		return nullptr;
+	}
 }
 
 void perform_action(Action* action, std::vector<Cell*> curr_fires) {
@@ -103,27 +110,29 @@ void perform_action(Action* action, std::vector<Cell*> curr_fires) {
 	std::pair<float, float> xy_pos = action->pos;
 	Cell* cell = get_cell_from_xy(xy_pos);
 
-	switch (action->type) {
+	if (cell != nullptr) {
+		switch (action->type) {
 	
-	case SET_MOISTURE:
-		cell->moisture = action->value;
-		break;
+		case SET_MOISTURE:
+			cell->moisture = action->value;
+			break;
 	
-	case SET_FUEL_CONTENT:
-		cell->fuelContent = action->value;
-		break;
+		case SET_FUEL_CONTENT:
+			cell->fuelContent = action->value;
+			break;
 	
-	case SET_PRESCIBED_BURN:
-		cell->state = PRESCRIBED_FIRE;
-		curr_fires.push_back(cell); 
-		break;
+		case SET_PRESCIBED_BURN:
+			cell->state = PRESCRIBED_FIRE;
+			curr_fires.push_back(cell);
+			break;
 
-	case SET_WILDFIRE:
-		cell->state = WILDFIRE;
-		curr_fires.push_back(cell);
+		case SET_WILDFIRE:
+			cell->state = WILDFIRE;
+			curr_fires.push_back(cell);
 	
-	default:
-		break;
+		default:
+			break;
+		}
 	}
 }
 
@@ -252,7 +261,7 @@ std::pair<double, double> calc_wind_effect(Cell* curr_cell, Cell* neighbor) {
 	} else {
 		mapping = HexUtil::odd_neighborhood_mapping;
 	}
-	
+
 	// Get the unit vector pointing from curr_cell to neighbor
 	std::pair<double, double> disp_vec = mapping.at({di, dj});
 
@@ -377,7 +386,7 @@ std::vector<std::pair<int, int>> get_neighbors(int i, int j) {
 
 	// Populate neighbors vector
     std::vector<std::pair<int, int>> neighbors;
-    for (const auto& offset : neighborhood) {
+    for (std::pair<int, int> offset : neighborhood) {
         int ni = i + offset.first;
         int nj = j + offset.second;
 
@@ -432,6 +441,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 	[&](Cell* cell) {
 		// Get indices of current cell
 		std::pair<int, int> indices = cell->indices;
+
 		// Get neighbors of current cell
 		std::vector<std::pair<int, int>> neighbors = neighbor_map.at(cell->id);
 		
@@ -473,10 +483,10 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 			if (cell->state == PRESCRIBED_FIRE) {
 				cell->fuelContent *= 0.3;
 
-				// TODO: add to partially burned output
+				// TODO: May not want to add these to the prediction
+				// TODO: Necessary to keep track of partially burned cells?
 			}
 		}
-
 		return neighbors.empty(); // Return true if cell should be removed
 	});
 
@@ -487,34 +497,56 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
     curr_fires.insert(curr_fires.end(), new_fires.begin(), new_fires.end());
 }
 
-void writePredToFile(const PredMap& prediction){
-	// Write prediction map to a .bin file for python to processs
-    std::ofstream file("prediction.bin", std::ios::binary);
+void writePredToFile(std::string output_file, const PredMap& prediction) {
+    // Write prediction map to a .bin file for python to process
+	std::ofstream file(output_file, std::ios::binary);
+
+    // Open file
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << output_file << std::endl;
+        return;
+    }
+
+	// Write data
     for (const auto& entry : prediction) {
         float timeStep = entry.first;
         int numCells = entry.second.size();
 
         file.write(reinterpret_cast<const char*>(&timeStep), sizeof(timeStep));
         file.write(reinterpret_cast<const char*>(&numCells), sizeof(numCells));
+        if (!file) {
+            std::cerr << "Failed to write timestep or number of cells to file." << std::endl;
+            break;
+        }
+
         for (const auto& cell : entry.second) {
             file.write(reinterpret_cast<const char*>(&cell.first), sizeof(cell.first));
             file.write(reinterpret_cast<const char*>(&cell.second), sizeof(cell.second));
+            if (!file) {
+                std::cerr << "Failed to write cell data to file." << std::endl;
+                break;
+            }
         }
     }
 
     file.close();
+    if (!file) {
+        std::cerr << "An error occurred during file operations." << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
 	// Parse Inputs
-	if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << "<cell_filename>" << "<action_filename>" << std::endl;
+	if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << "<cell_filename>" << "optional: <action_filename>" << std::endl;
         return 1;
     }
 
+	char* path_dup = strdup(argv[0]);
+    char* dir_path = dirname(path_dup);
+    std::string base_path = std::string(dir_path) + "/../bin/";
+    std::string output_file = base_path + "prediction.bin";
     const char* cell_filename = argv[1];
-	const char* action_filename = argv[2];
- 
 
 	// Get sim parameters from input string
 	string line;
@@ -569,29 +601,32 @@ int main(int argc, char* argv[]) {
 
     close(fd);
 
-	// Load actions from input file
-	size = num_actions * sizeof(Action);
-	fd = open(action_filename, O_RDWR);
+	if (argc == 3) {
+		// If actions input file load
+		const char* action_filename = argv[2];
+		size = num_actions * sizeof(Action);
+		fd = open(action_filename, O_RDWR);
 
-	if (fd == -1) {
-		std::cout << "Failed to open the file: " << action_filename << std::endl;
-		return 1;
-	}
+		if (fd == -1) {
+			std::cout << "Failed to open the file: " << action_filename << std::endl;
+			return 1;
+		}
 
-	ftruncate(fd, size);
+		ftruncate(fd, size);
 
-	Action* actions = static_cast<Action*>(mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+		Action* actions = static_cast<Action*>(mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 
-	if (actions == MAP_FAILED) {
-		close(fd);
-		perror("Error mapping the file");
-		std::cout << "Error mapping the file";
-		return 1;
-	}
+		if (actions == MAP_FAILED) {
+			close(fd);
+			perror("Error mapping the file");
+			std::cout << "Error mapping the file";
+			return 1;
+		}
 
-	// Add actions to a priority queue according to time
-	for (int i = 0; i < num_actions; i++) {
-		action_queue.push(actions + i);
+		// Add actions to a priority queue according to time
+		for (int i = 0; i < num_actions; i++) {
+			action_queue.push(actions + i);
+		}
 	}
 
 	// Create a random engine
@@ -609,8 +644,8 @@ int main(int argc, char* argv[]) {
 		done = curr_fires.empty() || sim_time >= (horizon * 3600);
 	}
 
-	// Write results to memory map
-	writePredToFile(prediction);
+	// Write results to memory-mapped file
+	writePredToFile(output_file, prediction);
 
 	return 0;
 }
