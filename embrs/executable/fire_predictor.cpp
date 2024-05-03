@@ -36,10 +36,13 @@ using namespace std;
 // Declare global variable
 using IgnPoint = std::pair<float, float>;
 using PredMap = std::map<float, std::vector<IgnPoint>>;
+using ActionQueue = std::priority_queue<Action*, std::vector<Action*>, ActionComparator>;
 
-PredMap prediction;
-std::vector<std::vector<Cell*>> cellGrid; // (rows, std::vector<Cell*>(cols));
-std::priority_queue<Action*, std::vector<Action*>, ActionComparator> action_queue;
+PredMap* curr_prediction;
+std::vector<PredMap> prediction_vec;
+std::vector<std::vector<Cell*>> cellGrid;
+ActionQueue curr_action_queue;
+std::vector<ActionQueue> action_queue_vec;
 std::unordered_map<std::tuple<int,int>, CacheEntry, TupleHash> relational_dict;
 std::unordered_map<int, std::vector<std::pair<int, int>>> neighbor_map;
 std::vector<WindVec> wind_forecast;
@@ -47,7 +50,8 @@ WindVec curr_wind;
 std::pair<double, double> wind_vec;
 bool wind_changed = false;
 double bias, horizon, t_step, c_size, wind_forecast_t_step;
-int rows, cols, num_actions;
+int rows, cols, batch_size;
+float total_action_entries;
 double sim_time = 0;
 int curr_wind_index = -1;
 
@@ -138,10 +142,10 @@ void perform_action(Action* action, std::vector<Cell*> curr_fires) {
 
 void perform_actions(std::vector<Cell*> curr_fires) {
 	// Perform the actions scheduled before the next sim time-step
-	while (!action_queue.empty() && sim_time >= action_queue.top()->time) {
-		Action* action = action_queue.top();
+	while (!curr_action_queue.empty() && sim_time >= curr_action_queue.top()->time) {
+		Action* action = curr_action_queue.top();
 		perform_action(action, curr_fires);
-		action_queue.pop();
+		curr_action_queue.pop();
 	}
 }
 
@@ -418,9 +422,9 @@ bool update_wind(double sim_time) {
 
 // Start Prediction Specific Functions
 
-void add_cell_to_pred(PredMap& pred, float time_sec, IgnPoint point) {
+void add_cell_to_pred(PredMap* pred, float time_sec, IgnPoint point) {
 	// Add a cell to the prediction at the time step when ignition has been predicted
-	pred[time_sec].push_back(point);
+	(*pred)[time_sec].push_back(point);
 }
 
 void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine, std::uniform_real_distribution<double>& dist) {
@@ -430,7 +434,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 	wind_changed = update_wind(sim_time);
 
 	// Perform actions if any remain in the queue
-	if (!action_queue.empty()) {
+	if (!curr_action_queue.empty()) {
 		perform_actions(curr_fires);
 	}
 
@@ -470,7 +474,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 					new_fires.push_back(neighbor); 
 
 					// Add to predicted ignitions output
-					add_cell_to_pred(prediction, sim_time, {neighbor->position.x, neighbor->position.y});
+					add_cell_to_pred(curr_prediction, sim_time, {neighbor->position.x, neighbor->position.y});
 				}
 			} else {
 				// Remove neighbor from neighbor map
@@ -497,7 +501,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
     curr_fires.insert(curr_fires.end(), new_fires.begin(), new_fires.end());
 }
 
-void writePredToFile(std::string output_file, const PredMap& prediction) {
+void writePredToFile(std::string output_file, const std::vector<PredMap>& prediction_vec) {
     // Write prediction map to a .bin file for python to process
 	std::ofstream file(output_file, std::ios::binary);
 
@@ -508,26 +512,34 @@ void writePredToFile(std::string output_file, const PredMap& prediction) {
     }
 
 	// Write data
-    for (const auto& entry : prediction) {
-        float timeStep = entry.first;
-        int numCells = entry.second.size();
+	int num_maps = prediction_vec.size();
+	file.write(reinterpret_cast<const char*>(&num_maps), sizeof(num_maps));
 
-        file.write(reinterpret_cast<const char*>(&timeStep), sizeof(timeStep));
-        file.write(reinterpret_cast<const char*>(&numCells), sizeof(numCells));
-        if (!file) {
-            std::cerr << "Failed to write timestep or number of cells to file." << std::endl;
-            break;
-        }
+	for (const PredMap& prediction : prediction_vec) {
+		int num_entries = prediction.size();
+		file.write(reinterpret_cast<const char*>(&num_entries), sizeof(num_entries));
 
-        for (const auto& cell : entry.second) {
-            file.write(reinterpret_cast<const char*>(&cell.first), sizeof(cell.first));
-            file.write(reinterpret_cast<const char*>(&cell.second), sizeof(cell.second));
-            if (!file) {
-                std::cerr << "Failed to write cell data to file." << std::endl;
-                break;
-            }
-        }
-    }
+		for (const auto& entry : prediction) {
+			float timeStep = entry.first;
+			int numCells = entry.second.size();
+
+			file.write(reinterpret_cast<const char*>(&timeStep), sizeof(timeStep));
+			file.write(reinterpret_cast<const char*>(&numCells), sizeof(numCells));
+			if (!file) {
+				std::cerr << "Failed to write timestep or number of cells to file." << std::endl;
+				break;
+			}
+
+			for (const auto& cell : entry.second) {
+				file.write(reinterpret_cast<const char*>(&cell.first), sizeof(cell.first));
+				file.write(reinterpret_cast<const char*>(&cell.second), sizeof(cell.second));
+				if (!file) {
+					std::cerr << "Failed to write cell data to file." << std::endl;
+					break;
+				}
+			}
+		}
+	}
 
     file.close();
     if (!file) {
@@ -552,7 +564,7 @@ int main(int argc, char* argv[]) {
 	string line;
 	getline(cin, line);
 	stringstream ss(line);
-	ss >> num_actions >>bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
+	ss >> batch_size >> total_action_entries >> bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
 	
 	// Construct wind forecast
 	WindVec wv;
@@ -581,20 +593,21 @@ int main(int argc, char* argv[]) {
 
 	// Format array of cells in a 2d grid analogous to numpy array
 	cellGrid.resize(rows, std::vector<Cell*>(cols, nullptr));
+	std::vector<Cell> init_cells(rows * cols);
 	for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             cellGrid[i][j] = cells + i * cols + j;
-			std::vector<std::pair<int, int>> neighbors = get_neighbors(i, j);
-			neighbor_map[cellGrid[i][j]->id] = neighbors;
+			init_cells[i * cols + j] = *cellGrid[i][j];
         }
     }
 
     // Get cells that start initially on fire
     std::vector<Cell*> curr_fires;
+	std::vector<Cell*> init_fires;
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
             if (cellGrid[i][j]->state == 2) {
-                curr_fires.push_back(cellGrid[i][j]);
+                init_fires.push_back(cellGrid[i][j]);
             }
         }
     }
@@ -602,9 +615,9 @@ int main(int argc, char* argv[]) {
     close(fd);
 
 	if (argc == 3) {
-		// If actions input file load
+		// If actions input file, load it
 		const char* action_filename = argv[2];
-		size = num_actions * sizeof(Action);
+		size = total_action_entries * sizeof(Action);
 		fd = open(action_filename, O_RDWR);
 
 		if (fd == -1) {
@@ -615,7 +628,6 @@ int main(int argc, char* argv[]) {
 		ftruncate(fd, size);
 
 		Action* actions = static_cast<Action*>(mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-
 		if (actions == MAP_FAILED) {
 			close(fd);
 			perror("Error mapping the file");
@@ -623,11 +635,24 @@ int main(int argc, char* argv[]) {
 			return 1;
 		}
 
-		// Add actions to a priority queue according to time
-		for (int i = 0; i < num_actions; i++) {
-			action_queue.push(actions + i);
+		action_queue_vec.resize(batch_size);
+
+		int batch_idx = 0;
+		int idx = 0;
+		while (idx < total_action_entries) {
+			int num_actions = actions[idx].time;
+			idx++;
+			// Add actions to a priority queue according to time
+			for (int i = 0; i < num_actions; i++) {
+				action_queue_vec[batch_idx].push(actions + i);
+				idx++;
+			}
+			batch_idx++;
 		}
 	}
+
+	// Resize prediction vec based on batch_size // TODO: make sure this works correctly
+	prediction_vec.resize(batch_size);
 
 	// Create a random engine
     std::random_device rd;
@@ -636,16 +661,46 @@ int main(int argc, char* argv[]) {
     // Create a distribution from [0, 1) for random number generation
     std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-	// Start sim loop
-	bool done = false;
-	while (!done) {   
-		iterate(curr_fires, engine, dist);
-		sim_time += t_step;
-		done = curr_fires.empty() || sim_time >= (horizon * 3600);
+	for (int i = 0; i < batch_size; i++) {
+		// Get the action queue for the current simulation
+		curr_action_queue = action_queue_vec[i]; 
+
+		// Set the curr_prediction to the next index in the vec
+		curr_prediction = &prediction_vec[i];
+
+		// Reset cells to original state
+		std::memcpy(cells, &init_cells[0], rows * cols * sizeof(Cell));
+
+		// Reset curr_fires
+		curr_fires.clear();
+		for (Cell* fire_cell : init_fires) {
+			curr_fires.push_back(fire_cell);
+		}
+
+		// Reset neighbor_map // TODO: def can find a more efficient method for this
+		for (int i = 0; i < rows; i++) {
+			for (int j = 0; j < cols; j++) {
+				cellGrid[i][j] = cells + i * cols + j;
+				init_cells[i * cols + j] = *cellGrid[i][j];
+				std::vector<std::pair<int, int>> neighbors = get_neighbors(i, j);
+				neighbor_map[cellGrid[i][j]->id] = neighbors;
+			}
+		}
+
+		// Reset the sim clock
+		sim_time = 0.0;
+
+		// Start sim loop
+		bool done = false;
+		while (!done) { 
+			iterate(curr_fires, engine, dist);
+			sim_time += t_step;
+			done = curr_fires.empty() || sim_time >= (horizon * 3600);
+		}
 	}
 
 	// Write results to memory-mapped file
-	writePredToFile(output_file, prediction);
+	writePredToFile(output_file, prediction_vec);
 
 	return 0;
 }
