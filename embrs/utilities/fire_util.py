@@ -30,7 +30,29 @@ import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 
-class CellStates:
+from numba.core import types
+from numba.typed import Dict
+from enum import IntEnum, Enum
+
+cell_type = np.dtype([
+    ('id', np.int32),
+    ('state', np.int32),
+    ('fuelType', np.int32),
+    ('fuelContent', np.float32),
+    ('moisture', np.float32),
+    ('position', [('x', np.float32), ('y', np.float32), ('z', np.float32)]),
+    ('indices', [('i', np.int32), ('j', np.int32)]),
+    ('changed', np.bool_)
+])
+
+action_type = np.dtype([
+    ('type', np.int32),
+    ('pos', [('x', np.float32), ('y', np.float32)]),
+    ('time', np.float32),
+    ('value', np.float32)
+])
+
+class CellStates(IntEnum):
     """Enumeration of the possible cell states.
 
     Attributes:
@@ -41,7 +63,7 @@ class CellStates:
     # Cell States:
     BURNT, FUEL, FIRE = 0, 1, 2
 
-class FireTypes:
+class FireTypes(IntEnum):
     """Enumeration of the possible fire types.
 
     Attributes:
@@ -192,8 +214,18 @@ class WindAdjustments:
                                 50: (2.8, 45.13, 0.25), 60: (3.03, 39.61, 0.2), 70: (3.26, 33.92, 0.15), 80: (3.49, 27.56, 0.1),
                                 90: (3.72, 20, 0.05), 100: (3.94, 7.71, 0.01)}
 
+    # Create a Numba-compatible typed dictionary with the correct types
+    numba_wind_speed_param_mapping = Dict.empty(
+        key_type=types.int64,  # Wind speeds are integers
+        value_type=types.UniTuple(types.float64, 3)  # Tuples of 3 floats for the parameters
+    )
 
-class ControlledBurnParams:
+    # Populate the Numba dictionary with the data from your class
+    for key, value in wind_speed_param_mapping.items():
+        numba_wind_speed_param_mapping[key] = value
+
+
+class ControlledBurnParams(Enum):
     """Parameters differentiating :py:attr:`~FireTypes.PRESCRIBED` fires from :py:attr:`~FireTypes.WILD`
 
     Attributes:
@@ -252,16 +284,16 @@ class HexGridMath:
     hex_angle = 60 * (np.pi/180)
 
     # Define neighborhoods and unit vector mappings for even and odd rows
-    even_neighborhood_mapping = {(-1,1): (-np.cos(hex_angle), np.sin(hex_angle)),
-                                (0, 1): (np.cos(hex_angle), np.sin(hex_angle)),
-                                (1,0): (1,0), (0, -1): (np.cos(hex_angle), -np.sin(hex_angle)),
-                                (-1, -1): (-np.cos(hex_angle), -np.sin(hex_angle)),
-                                (-1,0): (-1,0)}
+    even_neighborhood_mapping = {(-1,1): [-np.cos(hex_angle), np.sin(hex_angle)],
+                                (0, 1): [np.cos(hex_angle), np.sin(hex_angle)],
+                                (1,0): [1,0], (0, -1): [np.cos(hex_angle), -np.sin(hex_angle)],
+                                (-1, -1): [-np.cos(hex_angle), -np.sin(hex_angle)],
+                                (-1,0): [-1,0]}
 
-    odd_neighborhood_mapping = {(1,0): (1,0), (1,1): (np.cos(hex_angle), np.sin(hex_angle)),
-                                (0,1): (-np.cos(hex_angle), np.sin(hex_angle)), (-1,0): (-1,0),
-                                (0,-1): (-np.cos(hex_angle), -np.sin(hex_angle)),
-                                (1, -1): (np.cos(hex_angle), -np.sin(hex_angle))}
+    odd_neighborhood_mapping = {(1,0): [1,0], (1,1): [np.cos(hex_angle), np.sin(hex_angle)],
+                                (0,1): [np.cos(hex_angle), np.sin(hex_angle)], (-1,0): [-1,0],
+                                (0,-1): [-np.cos(hex_angle), -np.sin(hex_angle)],
+                                (1, -1): [np.cos(hex_angle), -np.sin(hex_angle)]}
 
     even_neighborhood = [(-1,1), (0, 1), (1,0), (0, -1), (-1, -1), (-1,0)]
     odd_neighborhood = [(1,0), (1,1), (0,1), (-1,0), (0,-1), (1, -1)]
