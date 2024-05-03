@@ -10,7 +10,7 @@ enum ActionType {
 	SET_MOISTURE = 0,
 	SET_FUEL_CONTENT = 1,
 	SET_PRESCIBED_BURN = 2,
-	SET_WILDFIRE
+	SET_WILDFIRE = 3
 };
 
 struct Action {
