@@ -72,7 +72,7 @@ class FireSim(BaseFireSim):
     def __init__(self, fuel_map: np.ndarray, fuel_res: float, topography_map: np.ndarray,
                 topography_res: float, wind_vec: Wind, roads: list, fire_breaks: list,
                 time_step: int, cell_size: float, duration_s: float, initial_ignition: list,
-                size: tuple, display_freq_s = 300):
+                size: tuple, burnt_cells: list = None, display_freq_s = 300):
         """Constructor method to initialize a fire simulation instance. Saves input parameters,
         creates backing array, populates cell_grid and cell_dict with cells, sets initial ignition,
         applies fire-breaks and roads.
@@ -106,7 +106,7 @@ class FireSim(BaseFireSim):
         super().__init__(fuel_map, fuel_res, topography_map,
                 topography_res, wind_vec, roads, fire_breaks,
                 time_step, cell_size, duration_s, initial_ignition,
-                size, display_freq_s= display_freq_s)
+                size, burnt_cells = burnt_cells, display_freq_s= display_freq_s)
 
         self._init_iteration()
 

@@ -125,8 +125,8 @@ class Cell:
         :type fuel_type: :class:`~fire_simulator.fuel.Fuel`
         """
         self._fuel_type = fuel_type
-        self._fuel_content = fuel_type.init_fuel
-        self._state = fuel_type.init_state
+        self._fuel_content = fuel_type._init_fuel
+        self._state = fuel_type._init_state
         self.changed = True
 
     def _set_vprop(self, v_prop: float):
@@ -138,7 +138,7 @@ class Cell:
         """
 
         # Calculate time it takes for fire to propagate across cell
-        self._t_d = (2 * self.cell_size) / v_prop # distance across corners used as the distance
+        self._t_d = (2 * self._cell_size) / v_prop # distance across corners used as the distance
 
     def _set_state(self, state: CellStates):
         """Set the state of the cell to :py:attr:`CellStates.FUEL`, :py:attr:`CellStates.FIRE`,
@@ -151,23 +151,23 @@ class Cell:
         self.changed = True
 
         if state == CellStates.FIRE:
-            if self.fuel_type.fuel_type <= 13: # Make sure cell is combustible type
-                prop_speed = self.fuel_type.nominal_vel/60
-                self.W = self.fuel_type.consumption_factor
+            if self._fuel_type._fuel_type <= 13: # Make sure cell is combustible type
+                prop_speed = self._fuel_type._nominal_vel/60
+                self.W = self._fuel_type._consumption_factor
 
-                if self.fire_type == FireTypes.PRESCRIBED:
+                if self._fire_type == FireTypes.PRESCRIBED:
                     prop_speed *= ControlledBurnParams.nominal_vel_adj
                     self.W *= ControlledBurnParams.consumption_factor_adj
 
                 self._set_vprop(prop_speed)
 
-                if self.fuel_content == 1:        
+                if self._fuel_content == 1:        
                     self.ignition_clock = 0 - self._t_d # start ignition clock when fire has propagated across entire cell
-                    self.fuel_at_ignition = self.fuel_content
+                    self.fuel_at_ignition = self._fuel_content
                 else:
-                    adjusted_ignition_clock = -self.fuel_type.consumption_factor * np.log(self.fuel_content)
+                    adjusted_ignition_clock = -self._fuel_type._consumption_factor * np.log(self._fuel_content)
                     self.ignition_clock = 0 - adjusted_ignition_clock
-                    self.fuel_at_ignition = self.fuel_content
+                    self.fuel_at_ignition = self._fuel_content
 
     def _set_fire_type(self, fire_type: FireTypes):
         """Set the type of fire at a cell
