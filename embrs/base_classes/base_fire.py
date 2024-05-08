@@ -175,7 +175,7 @@ class BaseFireSim:
                 for col in range(min_col, max_col + 1):
                     if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
                         cell = self._cell_grid[row, col]
-                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell.fuel_type.fuel_type <= 13:
+                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type._fuel_type <= 13:
                             cell._set_fire_type(FireTypes.WILD)
                             cell._set_state(CellStates.FIRE)
                             self._curr_fires_cache.append(cell)
@@ -229,7 +229,7 @@ class BaseFireSim:
                             road_cell._set_state(CellStates.FUEL)
                         road_cell._set_fuel_content(rc.road_fuel_vals[road[1]])
 
-        # print("Initialization complete...")
+        print("Initialization complete...")
 
     def _add_cell_neighbors(self):
         """Populate the "neighbors" property of each cell in the simulation with each cell's
@@ -249,7 +249,7 @@ class BaseFireSim:
                     row_n = int(cell.row + dy)
                     col_n = int(cell.col + dx)
 
-                    if self._grid_height > row_n >= 0 and self._grid_width > col_n >= 0:
+                    if self._grid_height >= row_n >= 0 and self._grid_width >= col_n >= 0:
                         neighbor_id = self._cell_grid[row_n, col_n].id
                         neighbors.append((neighbor_id, (dx, dy)))
 
@@ -275,13 +275,16 @@ class BaseFireSim:
         # Calculate the probability the current cell igniting its neighbor
         # Calculation method pulled from Trucchia et. al (doi:10.3390/fire3030026)
         curr_key = (curr_cell.id, neighbor.id)
-        curr_entry = self._relational_dict.get(curr_key)
+        in_dict = curr_key in self._relational_dict
 
         # Check if values are cached and neither the wind nor the cells have changed
-        if curr_entry and not (self.wind_changed or neighbor.changed or curr_cell.changed):
+        if in_dict and not (self.wind_changed or neighbor.changed or curr_cell.changed):
             return self._relational_dict[curr_key]['prob'], self._relational_dict[curr_key]['v_prop']
 
-        if not curr_entry:
+        if in_dict:
+            curr_entry = self._relational_dict[curr_key]
+
+        else:
             # Create a dictionary entry if first function call for pairing
             self._relational_dict[curr_key] = {}
             curr_entry = self._relational_dict[curr_key]
@@ -304,8 +307,8 @@ class BaseFireSim:
 
         if neighbor.changed or 'e_m' not in curr_entry:
             # Update neighbor effects if neighbor state has changed
-            dead_m_ext = neighbor.fuel_type.dead_m_ext
-            dead_m = neighbor.dead_m
+            dead_m_ext = neighbor._fuel_type._dead_m_ext
+            dead_m = neighbor._dead_m
             fm_ratio = dead_m/dead_m_ext
             e_m = self._calc_fuel_moisture_effect(fm_ratio)
             nc_factor = neighbor.fuel_content
@@ -321,8 +324,8 @@ class BaseFireSim:
 
         if curr_cell.changed or 'p_n' not in curr_entry:
             # Update the curr_cell effects if its state has changed
-            p_n = curr_cell.fuel_type.spread_probs[neighbor.fuel_type.fuel_type]
-            v_n = curr_cell.fuel_type.nominal_vel / 60
+            p_n = curr_cell._fuel_type.spread_probs[neighbor._fuel_type._fuel_type]
+            v_n = curr_cell._fuel_type._nominal_vel / 60
 
             if curr_cell.fire_type == FireTypes.PRESCRIBED:
                 p_n *= ControlledBurnParams.nominal_prob_adj
@@ -347,7 +350,7 @@ class BaseFireSim:
         else:
             delta_t_sec = (self._cell_size * 1.5) / v_prop
 
-        num_iters = delta_t_sec/self.time_step
+        num_iters = delta_t_sec/self._time_step
 
         prob = (1-(1-p_n)**alpha_wh)*e_m
         prob = 1 - (1-prob)**(1/num_iters)
@@ -417,12 +420,12 @@ class BaseFireSim:
         if curr_cell._fire_type == FireTypes.WILD:
             if neighbor._state == CellStates.FUEL or neighbor._fire_type == FireTypes.PRESCRIBED:
                 # Check to make sure that neighbor is a combustible type
-                if neighbor._fuel_type.fuel_type <= 13:
+                if neighbor._fuel_type._fuel_type <= 13:
                     return True
 
         elif curr_cell._fire_type == FireTypes.PRESCRIBED:
             if neighbor._state == CellStates.FUEL and neighbor._fuel_content > ControlledBurnParams.min_burnable_fuel_content:
-                if neighbor._fuel_type.fuel_type <= 13:
+                if neighbor._fuel_type._fuel_type <= 13:
                     return True
 
         return False
@@ -468,6 +471,23 @@ class BaseFireSim:
 
         return np.mean(x_coords), np.mean(y_coords)
 
+    def hex_round(self, q, r):
+        s = -q - r
+        q_r = round(q)
+        r_r = round(r)
+        s_r = round(s)
+        q_diff = abs(q_r - q)
+        r_diff = abs(r_r - r)
+        s_diff = abs(s_r - s)
+
+        if q_diff > r_diff and q_diff > s_diff:
+            q_r = -r_r - s_r
+        elif r_diff > s_diff:
+            r_r = -q_r - s_r
+        else:
+            s_r = -q_r - r_r
+
+        return (int(q_r), int(r_r))
 
     def get_cell_from_xy(self, x_m: float, y_m: float, oob_ok = False) -> Cell:
         """Returns the cell in the sim that contains the point (x_m, y_m) in the cartesian
@@ -489,21 +509,22 @@ class BaseFireSim:
         :rtype: :class:`~fire_simulator.cell.Cell`
         """
 
-        point = Point(x_m, y_m)
 
         try:
-            # Initial estimate of the cell the point might be in
-            row = int(y_m // (self._cell_size * 1.5))
-            if row % 2 == 0:
-                col = int(x_m // (self._cell_size * np.sqrt(3))) + 1
-            else:
-                col = int((x_m // (self._cell_size * np.sqrt(3))) - 0.5) + 1
+            q = (np.sqrt(3)/3 * x_m - 1/3 * y_m) / self._cell_size
+            r = (2/3 * y_m) / self._cell_size
+
+            q, r = self.hex_round(q, r)
+
+            row = r
+            col = q + row//2
+
+
 
             # Check if the estimated cell contains the point
             estimated_cell = self._cell_grid[row, col]
 
-            if estimated_cell.polygon.contains(point):
-                return estimated_cell
+            return estimated_cell
 
         except IndexError:
             if not oob_ok:
@@ -512,24 +533,6 @@ class BaseFireSim:
                 raise ValueError(msg)
 
             return None
-
-        # Check neighboring cells
-        for neighbor in estimated_cell.neighbors:
-            neighbor_cell = self._cell_dict[neighbor[0]]
-
-            if neighbor_cell.polygon.contains(point):
-                return neighbor_cell
-
-        # If no cell contains the point and oob_ok is False, raise an error
-        if not oob_ok:
-            msg = f'Point ({x_m}, {y_m}) is outside the grid.'
-            
-            if self.logger:
-                self.logger.log_message(f"Following error occurred in 'FireSim.get_cell_from_xy()': {msg}")
-            
-            raise ValueError(msg)
-
-        return None
 
     def get_cell_from_indices(self, row: int, col: int) -> Cell:
         """Returns the cell in the sim at the indices [row, col] in 
@@ -668,10 +671,11 @@ class BaseFireSim:
             raise TypeError(msg)
 
         # Remove cell from data structures related to previous state
-        prev_state = cell.state
+        prev_state = cell._state
 
         if prev_state == CellStates.FIRE:
-            self._curr_fires_anti_cache.append(cell)
+            if state != CellStates.FIRE:
+                self._curr_fires_anti_cache.append(cell)
 
         elif prev_state == CellStates.BURNT:
             self._burnt_cells.remove(cell)
@@ -753,7 +757,8 @@ class BaseFireSim:
         :param cell: :class:`~fire_simulator.cell.Cell` object to set a prescribed fire in
         :type cell: :class:`~fire_simulator.cell.Cell`
         """
-        self.set_state_at_cell(cell, CellStates.FIRE, fire_type=FireTypes.PRESCRIBED)
+        if cell.state != CellStates.FIRE: # Prevent calling this more than once on a cell
+            self.set_state_at_cell(cell, CellStates.FIRE, fire_type=FireTypes.PRESCRIBED)
 
     # Functions for setting fuel content
     def set_fuel_content_at_xy(self, x_m: float, y_m: float, fuel_content: float):
