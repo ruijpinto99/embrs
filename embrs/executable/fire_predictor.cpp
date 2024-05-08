@@ -49,6 +49,7 @@ std::vector<WindVec> wind_forecast;
 WindVec curr_wind;
 std::pair<double, double> wind_vec;
 bool wind_changed = false;
+bool preprocess_actions = false;
 double bias, horizon, t_step, c_size, wind_forecast_t_step;
 int rows, cols, batch_size;
 float total_action_entries;
@@ -107,8 +108,8 @@ Cell* get_cell_from_xy(std::pair<float, float> xy_pos) {
 	}
 }
 
-void perform_action(Action* action, std::vector<Cell*> curr_fires) {
-	// Carry out specific action specified
+void perform_action(Action* action, std::vector<Cell*>* curr_fires) {
+	// Carry out action specified
 
 	// Get cell at the specified action location
 	std::pair<float, float> xy_pos = action->pos;
@@ -116,31 +117,36 @@ void perform_action(Action* action, std::vector<Cell*> curr_fires) {
 
 	if (cell != nullptr) {
 		switch (action->type) {
-	
-		case SET_MOISTURE:
-			cell->moisture = action->value;
-			break;
-	
-		case SET_FUEL_CONTENT:
-			cell->fuelContent = action->value;
-			break;
-	
-		case SET_PRESCIBED_BURN:
-			cell->state = PRESCRIBED_FIRE;
-			curr_fires.push_back(cell);
-			break;
 
-		case SET_WILDFIRE:
-			cell->state = WILDFIRE;
-			curr_fires.push_back(cell);
-	
-		default:
-			break;
-		}
-	}
+			case SET_MOISTURE:
+	            cell->moisture = action->value;
+                break;
+
+            case SET_FUEL_CONTENT:
+                cell->fuelContent = action->value;
+                break;
+
+            case SET_PRESCIBED_BURN:
+                cell->state = PRESCRIBED_FIRE;
+                if (std::find(curr_fires->begin(), curr_fires->end(), cell) == curr_fires->end()) {
+                    curr_fires->push_back(cell);
+                }
+                break;
+
+            case SET_WILDFIRE:
+                cell->state = WILDFIRE;
+                if (std::find(curr_fires->begin(), curr_fires->end(), cell) == curr_fires->end()) {
+                    curr_fires->push_back(cell);
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
 }
 
-void perform_actions(std::vector<Cell*> curr_fires) {
+void perform_actions(std::vector<Cell*>* curr_fires) {
 	// Perform the actions scheduled before the next sim time-step
 	while (!curr_action_queue.empty() && sim_time >= curr_action_queue.top()->time) {
 		Action* action = curr_action_queue.top();
@@ -435,7 +441,7 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 
 	// Perform actions if any remain in the queue
 	if (!curr_action_queue.empty()) {
-		perform_actions(curr_fires);
+		perform_actions(&curr_fires);
 	}
 
 	std::vector<Cell*> new_fires;
@@ -452,10 +458,10 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 		// Loop through neighbors of fires
 		for (std::pair<int, int> n_idx : neighbors) {
 			Cell* neighbor = cellGrid[n_idx.first][n_idx.second];
-			if (neighbor->state == FUEL || 
-				cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE ||
-				cell->state == PRESCRIBED_FIRE && neighbor->fuelContent > ControlledBurnParams::min_burnable_fuel_content) {
-				
+			if ((neighbor->state == FUEL && neighbor->fuelContent > 0) || 
+				(cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE) ||
+				(cell->state == PRESCRIBED_FIRE && neighbor->state == FUEL && neighbor->fuelContent > ControlledBurnParams::min_burnable_fuel_content)) {
+
 				// Calculate ignition prob
 				std::pair<float, float> prob_output = calc_prob(cell, neighbor);
 
@@ -474,7 +480,9 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 					new_fires.push_back(neighbor); 
 
 					// Add to predicted ignitions output
-					add_cell_to_pred(curr_prediction, sim_time, {neighbor->position.x, neighbor->position.y});
+					if (neighbor->state == WILDFIRE) {
+						add_cell_to_pred(curr_prediction, sim_time, {neighbor->position.x, neighbor->position.y});
+					}
 				}
 			} else {
 				// Remove neighbor from neighbor map
@@ -484,13 +492,19 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 				neighbor_map[cell->id] = neighbors;
 			}
 
-			if (cell->state == PRESCRIBED_FIRE) {
-				cell->fuelContent *= 0.3;
-
-				// TODO: May not want to add these to the prediction
-				// TODO: Necessary to keep track of partially burned cells?
-			}
 		}
+		
+		if (cell->state == PRESCRIBED_FIRE) {
+			cell->fuelContent -= 0.05;
+
+			if (cell->fuelContent <= 0.3) {
+				cell->state = FUEL;
+				return true;
+			}
+
+			// TODO: Necessary to keep track of partially burned cells?
+		}
+
 		return neighbors.empty(); // Return true if cell should be removed
 	});
 
@@ -564,7 +578,7 @@ int main(int argc, char* argv[]) {
 	string line;
 	getline(cin, line);
 	stringstream ss(line);
-	ss >> batch_size >> total_action_entries >> bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
+	ss  >> preprocess_actions >> batch_size >> total_action_entries >> bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
 	
 	// Construct wind forecast
 	WindVec wv;
@@ -586,8 +600,8 @@ int main(int argc, char* argv[]) {
 
 	if (cells == MAP_FAILED) {
 		close(fd);
-		perror("Error mapping the file");
-		std::cout << "Error mapping the file";
+		perror("Error mapping the cells file");
+		std::cout << "Error mapping the cells file";
 		return 1;
 	}
 
@@ -606,7 +620,7 @@ int main(int argc, char* argv[]) {
 	std::vector<Cell*> init_fires;
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            if (cellGrid[i][j]->state == 2) {
+            if (cellGrid[i][j]->state == WILDFIRE) {
                 init_fires.push_back(cellGrid[i][j]);
             }
         }
@@ -630,8 +644,8 @@ int main(int argc, char* argv[]) {
 		Action* actions = static_cast<Action*>(mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 		if (actions == MAP_FAILED) {
 			close(fd);
-			perror("Error mapping the file");
-			std::cout << "Error mapping the file";
+			perror("Error mapping the actions file");
+			std::cout << "Error mapping the actions file";
 			return 1;
 		}
 
@@ -673,9 +687,6 @@ int main(int argc, char* argv[]) {
 
 		// Reset curr_fires
 		curr_fires.clear();
-		for (Cell* fire_cell : init_fires) {
-			curr_fires.push_back(fire_cell);
-		}
 
 		// Reset neighbor_map // TODO: def can find a more efficient method for this
 		for (int i = 0; i < rows; i++) {
@@ -687,8 +698,26 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
+		if (preprocess_actions) { // TODO: need to think about effect of wind forecast
+			// Process actions first
+			sim_time = 0.0;
+			bool actions_processed = false;
+
+			while (!actions_processed) {
+				iterate(curr_fires, engine, dist);
+
+				sim_time += t_step;
+				actions_processed = curr_action_queue.empty() && curr_fires.empty();
+			}
+		}
+
 		// Reset the sim clock
 		sim_time = 0.0;
+
+		// Populate curr_fires again
+		for (Cell* fire_cell : init_fires) {
+			curr_fires.push_back(fire_cell);
+		}
 
 		// Start sim loop
 		bool done = false;
@@ -698,6 +727,9 @@ int main(int argc, char* argv[]) {
 			done = curr_fires.empty() || sim_time >= (horizon * 3600);
 		}
 	}
+
+	// Reset cell data for next time executable is called
+	std::memcpy(cells, &init_cells[0], rows * cols * sizeof(Cell));
 
 	// Write results to memory-mapped file
 	writePredToFile(output_file, prediction_vec);
