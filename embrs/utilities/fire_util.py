@@ -30,10 +30,6 @@ import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 
-from numba.core import types
-from numba.typed import Dict
-from enum import IntEnum, Enum
-
 cell_type = np.dtype([
     ('id', np.int32),
     ('state', np.int32),
@@ -52,7 +48,7 @@ action_type = np.dtype([
     ('value', np.float32)
 ])
 
-class CellStates(IntEnum):
+class CellStates:
     """Enumeration of the possible cell states.
 
     Attributes:
@@ -63,7 +59,7 @@ class CellStates(IntEnum):
     # Cell States:
     BURNT, FUEL, FIRE = 0, 1, 2
 
-class FireTypes(IntEnum):
+class FireTypes:
     """Enumeration of the possible fire types.
 
     Attributes:
@@ -214,18 +210,7 @@ class WindAdjustments:
                                 50: (2.8, 45.13, 0.25), 60: (3.03, 39.61, 0.2), 70: (3.26, 33.92, 0.15), 80: (3.49, 27.56, 0.1),
                                 90: (3.72, 20, 0.05), 100: (3.94, 7.71, 0.01)}
 
-    # Create a Numba-compatible typed dictionary with the correct types
-    numba_wind_speed_param_mapping = Dict.empty(
-        key_type=types.int64,  # Wind speeds are integers
-        value_type=types.UniTuple(types.float64, 3)  # Tuples of 3 floats for the parameters
-    )
-
-    # Populate the Numba dictionary with the data from your class
-    for key, value in wind_speed_param_mapping.items():
-        numba_wind_speed_param_mapping[key] = value
-
-
-class ControlledBurnParams(Enum):
+class ControlledBurnParams:
     """Parameters differentiating :py:attr:`~FireTypes.PRESCRIBED` fires from :py:attr:`~FireTypes.WILD`
 
     Attributes:
