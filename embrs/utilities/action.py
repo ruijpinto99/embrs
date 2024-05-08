@@ -135,7 +135,7 @@ class SetIgnition(Action):
         :type fire: BaseFireSim
         """
 
-        cell = fire.get_cell_from_xy(self.loc[0]. self.loc[1])
+        cell = fire.get_cell_from_xy(self.loc[0], self.loc[1], oob_ok=True)
         if cell is not None:
             if self.fire_type == FireTypes.PRESCRIBED:
                 fire.set_prescribed_fire_at_xy(self.loc[0], self.loc[1])
