@@ -64,8 +64,6 @@ class FirePredictor(BaseFireSim):
         if time_step_s is None:
             time_step_s = orig_fire.time_step * 2
 
-        cell_size_m = orig_fire.cell_size
-
         self._time_step = time_step_s
         self._cell_size = cell_size_m
 
@@ -227,7 +225,7 @@ class FirePredictor(BaseFireSim):
             mm.write(self._cell_grid.tobytes())
             mm.close()
 
-    def run_prediction_batch(self, batch_size, action_seq_batch = None) -> dict:
+    def run_prediction_batch(self, batch_size, action_seq_batch = None, preprocess_actions:bool = False) -> dict:
         if action_seq_batch is not None:
             actions, total_actions = self.convert_to_action_type(action_seq_batch)
 
@@ -248,7 +246,7 @@ class FirePredictor(BaseFireSim):
             total_actions = 0
 
         # Pass in fire prediction settings
-        params = f"{batch_size} {total_actions} {self.bias} {self.time_horizon_hr} {self.time_step} {self.cell_size} {self.shape[0]} {self.shape[1]} {self.wind_t_step} {self.wind_forecast_str}"
+        params = f"{int(preprocess_actions)} {batch_size} {total_actions} {self.bias} {self.time_horizon_hr} {self.time_step} {self.cell_size} {self.shape[0]} {self.shape[1]} {self.wind_t_step} {self.wind_forecast_str}"
 
         current_script_dir = os.path.dirname(os.path.abspath(__file__))
         executable_path = os.path.join(current_script_dir, '..', 'executable', 'fire_prediction')
@@ -266,7 +264,7 @@ class FirePredictor(BaseFireSim):
 
         return predictions
 
-    def run_prediction(self, action_sequence:list = None) -> dict:
+    def run_prediction(self, action_sequence:list = None, preprocess_actions:bool = False) -> dict:
         """Run a prediction
 
         :param action_sequence: Action sequence that should be completed during the course of 
@@ -285,7 +283,7 @@ class FirePredictor(BaseFireSim):
         else:
             action_vec = None
 
-        pred_vec = self.run_prediction_batch(batch_size, action_vec)
+        pred_vec = self.run_prediction_batch(batch_size, action_vec, preprocess_actions)
 
         return pred_vec[0]
 
