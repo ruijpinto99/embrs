@@ -122,6 +122,7 @@ class BaseFireSim:
         self.wind_changed = True
 
         # Save scenario data
+        self.burnt_cells_input = burnt_cells 
         self.coarse_topography = np.empty(self._shape)
         self._fire_breaks = fire_breaks
         self.base_topography = topography_map
@@ -162,23 +163,7 @@ class BaseFireSim:
         self._add_cell_neighbors()
 
         # Set initial ignitions
-        for polygon in initial_ignition:
-            minx, miny, maxx, maxy = polygon.bounds
-
-            # Get row and col indices for bounding box
-            min_row = int(miny // (cell_size * 1.5))
-            max_row = int(maxy // (cell_size * 1.5))
-            min_col = int(minx // (cell_size * np.sqrt(3)))
-            max_col = int(maxx // (cell_size * np.sqrt(3)))
-
-            for row in range(min_row, max_row + 1):
-                for col in range(min_col, max_col + 1):
-                    if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
-                        cell = self._cell_grid[row, col]
-                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type._fuel_type <= 13:
-                            cell._set_fire_type(FireTypes.WILD)
-                            cell._set_state(CellStates.FIRE)
-                            self._curr_fires_cache.append(cell)
+        self._set_initial_ignition(initial_ignition)
 
         if burnt_cells is not None:
             for polygon in burnt_cells:
@@ -255,6 +240,27 @@ class BaseFireSim:
 
                 cell._neighbors = neighbors
                 cell._burnable_neighbors = set(neighbors)
+
+    def _set_initial_ignition(self, initial_ignition):
+
+        for polygon in initial_ignition:
+            minx, miny, maxx, maxy = polygon.bounds
+
+            # Get row and col indices for bounding box
+            min_row = int(miny // (self._cell_size * 1.5))
+            max_row = int(maxy // (self._cell_size * 1.5))
+            min_col = int(minx // (self._cell_size * np.sqrt(3)))
+            max_col = int(maxx // (self._cell_size * np.sqrt(3)))
+
+            for row in range(min_row, max_row + 1):
+                for col in range(min_col, max_col + 1):
+                    if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
+                        cell = self._cell_grid[row, col]
+                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type._fuel_type <= 13:
+                            cell._set_fire_type(FireTypes.WILD)
+                            cell._set_state(CellStates.FIRE)
+                            self._curr_fires_cache.append(cell)
+
 
     def _calc_prob(self, curr_cell: Cell, neighbor: Cell, disp: tuple) -> Tuple[float, float]:
         """Calculate the probability of curr_cell igniting neighbor at the current instant and the
