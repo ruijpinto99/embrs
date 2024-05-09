@@ -115,6 +115,7 @@ class FireSim(BaseFireSim):
         """
         # Set-up iteration
         if self._init_iteration():
+            self._finished = True
             return
 
         # Update wind
@@ -256,7 +257,6 @@ class FireSim(BaseFireSim):
         self.ignition_clocks = []
 
         if len(self._curr_fires) == 0 or self._curr_time_s >= self._sim_duration:
-            self._finished = True
             self.progress_bar.close()
 
             if len(self._curr_fires) == 0:
