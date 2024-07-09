@@ -182,7 +182,7 @@ class FuelConstants:
     # based on the values in the Anderson Fuel model
     dead_fuel_moisture_ext_table = {1: 0.12, 2: 0.15, 3: 0.25, 4: 0.20, 5: 0.20, 6: 0.25, 7: 0.40,
                                     8: 0.30, 9: 0.25, 10: 0.25, 11: 0.15, 12: 0.20, 13: 0.25,
-                                    91: 0.1, 92: 0, 93: 0, 98: 0, 99: 0}
+                                    91: 0.1, 92: 1, 93: 1, 98: 1, 99: 1}
 
     # Weighting factor for mass-loss curve for each fuel type
     fuel_consumption_factor_table = {1: 7, 2: 30, 3: 7, 4: 360, 5: 360, 6: 360, 7: 360,
@@ -223,7 +223,7 @@ class ControlledBurnParams:
     nominal_prob_adj = 0.75
     nominal_vel_adj = 0.5
     consumption_factor_adj = 1.5
-    min_burnable_fuel_content = 0.25
+    min_burnable_fuel_content = 0.35
     burnout_fuel_frac = 0.3
 
 class RoadConstants:
