@@ -1,6 +1,7 @@
 #include <unordered_map>
 #include <tuple>
 #include <map>
+# include <vector>
 
 struct Position {
     float x, y, z;
