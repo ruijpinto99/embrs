@@ -259,6 +259,7 @@ class BaseFireSim:
                         if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type._fuel_type <= 13:
                             cell._set_fire_type(FireTypes.WILD)
                             cell._set_state(CellStates.FIRE)
+                            cell.ignition_clock = 0
                             self._curr_fires_cache.append(cell)
 
 
@@ -358,13 +359,12 @@ class BaseFireSim:
 
         num_iters = delta_t_sec/self._time_step
 
-        prob = (1-(1-p_n)**alpha_wh)*e_m
-        prob = 1 - (1-prob)**(1/num_iters)
+        prob = (1 - (1 - p_n) ** alpha_wh) * e_m
+        prob = 1 - (1 - prob) ** (1 / num_iters)
         prob *= nc_factor
 
         curr_entry['prob'] = prob
         curr_entry['v_prop'] = v_prop
-
         return prob, v_prop
 
     def _calc_fuel_moisture_effect(self, fm_ratio: float) -> float:
@@ -517,6 +517,13 @@ class BaseFireSim:
 
 
         try:
+            if x_m < 0 or y_m < 0:
+                if not oob_ok:
+                    raise IndexError("x and y coordinates must be positive")
+
+                else:
+                    return None
+
             q = (np.sqrt(3)/3 * x_m - 1/3 * y_m) / self._cell_size
             r = (2/3 * y_m) / self._cell_size
 
@@ -524,8 +531,6 @@ class BaseFireSim:
 
             row = r
             col = q + row//2
-
-
 
             # Check if the estimated cell contains the point
             estimated_cell = self._cell_grid[row, col]
