@@ -29,7 +29,9 @@ public:
 	{99, {{1, 0},     {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0}, {13, 0}, {91, 0}, {92, 0}, {93, 0}, {98, 0}, {99, 0}}}
 };
     static inline const std::unordered_map<int, double> nom_spread_vel_table = {{1, 78}, {2, 35}, {3, 104}, {4, 75}, {5, 18}, {6, 32}, {7, 20}, {8, 1.6}, {9, 7.5}, {10, 7.9}, {11, 6}, {12, 13}, {13, 13.5}, {91, 0}, {92, 0}, {93, 0}, {98, 0}, {99, 0}};
-    static inline const std::unordered_map<int, double> dead_fuel_moisture_ext_table = {{1, 0.12}, {2, 0.15}, {3, 0.25}, {4, 0.20}, {5, 0.20}, {6, 0.25}, {7, 0.40}, {8, 0.30}, {9, 0.25}, {10, 0.25}, {11, 0.15}, {12, 0.20}, {13, 0.25}, {91, 0.1}, {92, 0}, {93, 0}, {98, 0}, {99, 0}};;
+    static inline const std::unordered_map<int, double> dead_fuel_moisture_ext_table = {{1, 0.12}, {2, 0.15}, {3, 0.25}, {4, 0.20}, {5, 0.20}, {6, 0.25}, {7, 0.40}, {8, 0.30}, {9, 0.25}, {10, 0.25}, {11, 0.15}, {12, 0.20}, {13, 0.25}, {91, 0.1}, {92, 1}, {93, 1}, {98, 1}, {99, 1}};
+	static inline const std::unordered_map<int, double> fuel_consumption_factor_table = {{1,7.0}, {2, 30.0}, {3, 7.0}, {4, 360.0}, {5, 360.0}, {6, 360.0}, {7, 360.0}, {8, 1200.0}, {9, 1200.0}, {10, 1200.0}, {11, 1200.0}, {12, 1200.0}, {13, 1200.0}, {91, 0.0}, {92, 0.0}, {93, 0.0}, {98, 0.0}, {99, 0.0}};
+
 };
 
 class ControlledBurnParams {
@@ -37,7 +39,7 @@ public:
     static inline const double nominal_prob_adj = 0.75;
     static inline const double nominal_vel_adj = 0.5;
     static inline const double consumption_factor_adj = 1.5;
-    static inline const double min_burnable_fuel_content = 0.25;
+    static inline const double min_burnable_fuel_content = 0.35;
     static inline const double burnout_fuel_frac = 0.3;
 };
 
