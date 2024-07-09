@@ -15,23 +15,10 @@
 #include <cmath>
 #include <algorithm>
 #include <queue>
-# include <libgen.h>
+#include <libgen.h>
+#include <random>
 
 using namespace std;
-
-// Inputs from python
-	// (int []) cell states
-	// (float []) fuel contents
-	// (float) bias
-	// (float) time_horizon_hr
-	// (float) time_step_sec
-	// (float) cell_size_m
-	// (float []) wind_forecast (add noise before inputting)
-	// (float) wind_forecast_t_step
-	// action sets - need to figure out best way to format this
-
-// Output
-	// predicted fires - need a good way to format this
 
 // Declare global variable
 using IgnPoint = std::pair<float, float>;
@@ -39,18 +26,21 @@ using PredMap = std::map<float, std::vector<IgnPoint>>;
 using ActionQueue = std::priority_queue<Action*, std::vector<Action*>, ActionComparator>;
 
 PredMap* curr_prediction;
+PredMap* curr_control_pred;
 std::vector<PredMap> prediction_vec;
+std::vector<PredMap> control_pred_vec;
 std::vector<std::vector<Cell*>> cellGrid;
 ActionQueue curr_action_queue;
 std::vector<ActionQueue> action_queue_vec;
 std::unordered_map<std::tuple<int,int>, CacheEntry, TupleHash> relational_dict;
+std::unordered_map<int, std::vector<std::pair<int, int>>> cached_neighbors;
 std::unordered_map<int, std::vector<std::pair<int, int>>> neighbor_map;
+std::unordered_map<int, std::pair<float, float>> ign_info_map;
 std::vector<WindVec> wind_forecast;
 WindVec curr_wind;
 std::pair<double, double> wind_vec;
 bool wind_changed = false;
-bool preprocess_actions = false;
-double bias, horizon, t_step, c_size, wind_forecast_t_step;
+double fire_start_time_h, bias, horizon, t_step, c_size, wind_forecast_t_step;
 int rows, cols, batch_size;
 float total_action_entries;
 double sim_time = 0;
@@ -87,6 +77,10 @@ Cell* get_cell_from_xy(std::pair<float, float> xy_pos) {
 	float x_m = xy_pos.first;
 	float y_m = xy_pos.second;
 
+	if (x_m < 0 || y_m < 0) {
+		return nullptr;
+	}
+
 	// Convert to hexagonal coordinates
 	double q = (std::sqrt(3) / 3.0 * x_m - 1.0/3.0 * y_m) / c_size;
 	double r = (2.0/3.0 * y_m) / c_size;
@@ -105,6 +99,12 @@ Cell* get_cell_from_xy(std::pair<float, float> xy_pos) {
 	} else {
 		// Return nullptr if out of bounds
 		return nullptr;
+	}
+}
+
+void reset_neighbors() {
+	for (const auto& entry : cached_neighbors) {
+		neighbor_map[entry.first] = entry.second;
 	}
 }
 
@@ -128,15 +128,19 @@ void perform_action(Action* action, std::vector<Cell*>* curr_fires) {
 
             case SET_PRESCIBED_BURN:
                 cell->state = PRESCRIBED_FIRE;
-                if (std::find(curr_fires->begin(), curr_fires->end(), cell) == curr_fires->end()) {
+                // Only add to curr_fires if cell is not already in curr_fires
+				if (std::find(curr_fires->begin(), curr_fires->end(), cell) == curr_fires->end()) {
                     curr_fires->push_back(cell);
+					ign_info_map[cell->id] = {sim_time, cell->fuelContent};
                 }
                 break;
 
             case SET_WILDFIRE:
                 cell->state = WILDFIRE;
+				// Only add to curr_fires if cell is not already in curr_fires
                 if (std::find(curr_fires->begin(), curr_fires->end(), cell) == curr_fires->end()) {
                     curr_fires->push_back(cell);
+					ign_info_map[cell->id] = {sim_time, cell->fuelContent};
                 }
                 break;
 
@@ -159,39 +163,35 @@ std::pair<double, double> calc_slope_effect(Cell* curr_cell, Cell* neighbor) {
 	// Calculate the effect of the slope between curr_cell and neighbor
 
 	// Get relevant distances between cell positions
-	double rise = neighbor->position.z - curr_cell->position.z;
-	double dx = neighbor->position.x - curr_cell->position.x;
-	double dy = neighbor->position.y - curr_cell->position.y;
-	double run = std::sqrt(std::pow(dx, 2) + std::pow(dy, 2));
+    double rise = neighbor->position.z - curr_cell->position.z;
+    double dx = curr_cell->position.x - neighbor->position.x;
+    double dy = curr_cell->position.y - neighbor->position.y;
+    double run = std::sqrt(std::pow(dx, 2) + std::pow(dy, 2));
 
-	// Calculate slope percentage
-	double slope_pct = (rise / run) * 100;
-	
-	// Calculate effect on probability
-	double alpha_h;
-	if (slope_pct == 0) {
-		alpha_h = 1;
-	} else if (slope_pct < 0) {
-		alpha_h = 0.5/(1 + std::exp(-0.2*(slope_pct + 40))) + 0.5;
-	} else {
-		alpha_h = 1/(1 + std::exp(-0.2*(slope_pct - 40))) + 1;
-	}
+    double slope_pct = (rise / run) * 100;
+    
+    double alpha_h;
+    if (slope_pct == 0) {
+        alpha_h = 1;
+    } else if (slope_pct < 0) {
+        alpha_h = 0.5 / (1 + std::exp(-0.2 * (slope_pct + 40))) + 0.5;
+    } else {
+        alpha_h = 1 / (1 + std::exp(-0.2 * (slope_pct - 40))) + 1;
+    }
 
-	// Get slope angle
-	double phi = std::atan(rise/run);
+    double phi = std::atan(rise / run);
 
-	// Calculate effect on propagation velocity
-	int A;
-	if (phi < 0) {
-		A = 1;
-		phi = -phi;
-	} else {
-		A = 0;
-	}
+    int A;
+    if (phi < 0) {
+        A = 1;
+        phi = -phi;
+    } else {
+        A = 0;
+    }
 
-	double k_phi = std::exp(std::pow(-1,A)* 3.533 * std::pow(tan(phi), 1.2));
+    double k_phi = std::exp(std::pow(-1, A) * 3.533 * std::pow(tan(phi), 1.2));
 
-	return {alpha_h, k_phi};
+    return {alpha_h, k_phi};
 }
 
 double norm(const std::pair<double, double>& v) {
@@ -207,9 +207,6 @@ double lorentzian(double x, double A, double gamma, double C) {
 
 double interpolate_wind_adjustment(double wind_speed_kmh, double direction) {
 	// Interpolate the Lorentzian parameters to use based on wind speed and direciton
-
-	// TODO: should further verify that this works
-
 	std::map<int, std::tuple<double, double, double>> param_mapping = WindAdjustments::wind_speed_param_mapping;
 	
 	// Check if the exact wind speed exists
@@ -218,7 +215,7 @@ double interpolate_wind_adjustment(double wind_speed_kmh, double direction) {
 
 		auto [A, gamma, C] = it->second;
 
-        return lorentzian(wind_speed_kmh, A, gamma, C);
+        return lorentzian(direction, A, gamma, C);
     }
 
     // Find the closest lower and upper wind speeds
@@ -254,7 +251,7 @@ double interpolate_wind_adjustment(double wind_speed_kmh, double direction) {
     double gamma_interp = w1 * gamma_lower + w2 * gamma_upper;
     double C_interp = w1 * C_lower + w2 * C_upper;
 
-    return lorentzian(wind_speed_kmh, A_interp, gamma_interp, C_interp);
+    return lorentzian(direction, A_interp, gamma_interp, C_interp);
 }
 
 std::pair<double, double> calc_wind_effect(Cell* curr_cell, Cell* neighbor) {
@@ -273,7 +270,7 @@ std::pair<double, double> calc_wind_effect(Cell* curr_cell, Cell* neighbor) {
 	}
 
 	// Get the unit vector pointing from curr_cell to neighbor
-	std::pair<double, double> disp_vec = mapping.at({di, dj});
+	std::pair<double, double> disp_vec = mapping.at({dj, di});
 
 	// Calculate dot projection between unit vector and wind vector
 	double dot_proj = disp_vec.first * wind_vec.first + disp_vec.second * wind_vec.second;
@@ -346,18 +343,18 @@ std::pair<double, double> calc_prob(Cell* curr_cell, Cell* neighbor) {
 		curr_entry.e_m = calc_fuel_moisture_effect(fm_ratio);
 		curr_entry.nc_factor = neighbor->fuelContent;
 
-		neighbor->changed = true;
+		neighbor->changed = false;
 	}
 
 	if (curr_cell->changed || curr_entry.p_n == -1.0) {
 
 		// Get the nominal probability and propagation velocity for the current cell fuel type
 		curr_entry.p_n = FuelConstants::nom_spread_prob_table.at(curr_cell->fuelType).at(neighbor->fuelType);
-		curr_entry.v_n = FuelConstants::nom_spread_vel_table.at(curr_cell->fuelType);
+		curr_entry.v_n = (FuelConstants::nom_spread_vel_table.at(curr_cell->fuelType)*FuelConstants::ch_h_to_m_min) / 60;
 
 		if (curr_cell->state == PRESCRIBED_FIRE) {
 			curr_entry.p_n *= ControlledBurnParams::nominal_prob_adj;
-			curr_entry.v_n *= ControlledBurnParams::nominal_vel_adj / 60;
+			curr_entry.v_n *= ControlledBurnParams::nominal_vel_adj;
 		}
 		
 		curr_cell->changed = false;
@@ -382,7 +379,7 @@ std::pair<double, double> calc_prob(Cell* curr_cell, Cell* neighbor) {
 	double num_iters = delta_t_sec/t_step;
 
 	// Calculate probability
-	double prob = std::pow(1-(1-curr_entry.p_n), alpha_wh) * curr_entry.e_m;
+	double prob = (1 - std::pow((1 - curr_entry.p_n), alpha_wh)) * curr_entry.e_m;
 	prob = 1 - std::pow((1-prob), (1/num_iters));
 	prob *= curr_entry.nc_factor;
 	curr_entry.prob = prob;
@@ -397,8 +394,8 @@ std::vector<std::pair<int, int>> get_neighbors(int i, int j) {
 	// Populate neighbors vector
     std::vector<std::pair<int, int>> neighbors;
     for (std::pair<int, int> offset : neighborhood) {
-        int ni = i + offset.first;
-        int nj = j + offset.second;
+        int ni = i + offset.second;
+        int nj = j + offset.first;
 
         // Check boundaries
         if (ni >= 0 && ni < cellGrid.size() && nj >= 0 && nj < cellGrid[ni].size()) {
@@ -407,6 +404,14 @@ std::vector<std::pair<int, int>> get_neighbors(int i, int j) {
     }
 
     return neighbors;
+}
+
+void precompute_neighbors() {
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			cached_neighbors[cellGrid[i][j]->id] = get_neighbors(i, j);
+		}
+	}
 }
 
 bool update_wind(double sim_time) {
@@ -427,13 +432,12 @@ bool update_wind(double sim_time) {
 }
 
 // Start Prediction Specific Functions
-
 void add_cell_to_pred(PredMap* pred, float time_sec, IgnPoint point) {
 	// Add a cell to the prediction at the time step when ignition has been predicted
 	(*pred)[time_sec].push_back(point);
 }
 
-void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine, std::uniform_real_distribution<double>& dist) {
+void iterate(std::vector<Cell*>& curr_fires, std::mt19937& engine, std::uniform_real_distribution<double>& dist) {
 	// Run a single time-step of prediction model
 
 	// Update wind vector
@@ -453,28 +457,40 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 		std::pair<int, int> indices = cell->indices;
 
 		// Get neighbors of current cell
-		std::vector<std::pair<int, int>> neighbors = neighbor_map.at(cell->id);
-		
+		std::vector<std::pair<int, int>> neighbors = cached_neighbors.at(cell->id);
+
+		double min_neighbor_fuel;
+
+		if (cell->state == PRESCRIBED_FIRE) {
+			min_neighbor_fuel = ControlledBurnParams::min_burnable_fuel_content;
+		} else {
+			min_neighbor_fuel = 0.0;
+		}		
+
 		// Loop through neighbors of fires
 		for (std::pair<int, int> n_idx : neighbors) {
 			Cell* neighbor = cellGrid[n_idx.first][n_idx.second];
-			if ((neighbor->state == FUEL && neighbor->fuelContent > 0) || 
-				(cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE) ||
-				(cell->state == PRESCRIBED_FIRE && neighbor->state == FUEL && neighbor->fuelContent > ControlledBurnParams::min_burnable_fuel_content)) {
+			if ((neighbor->state == FUEL && neighbor->fuelContent > min_neighbor_fuel) || 
+				(cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE)) {
+
+				
 
 				// Calculate ignition prob
 				std::pair<float, float> prob_output = calc_prob(cell, neighbor);
 
 				float prob = prob_output.first * bias;
 				float v_prop = prob_output.second * bias;
-
+				
 				// Generate random number and make ignition decision
 				double rand = dist(engine);
 				if (rand < prob) {
-					
 					// Set neighbors state to fire
 					neighbor->state = cell->state;
 					neighbor->changed = true;
+
+					// Add entry to ignition info map
+					float t_d = (2 * c_size) / v_prop;
+					ign_info_map[neighbor->id] = {-t_d, neighbor->fuelContent};
 
 					// Add neighbor to new fires
 					new_fires.push_back(neighbor); 
@@ -482,30 +498,68 @@ void iterate(std::vector<Cell*>& curr_fires, std::default_random_engine& engine,
 					// Add to predicted ignitions output
 					if (neighbor->state == WILDFIRE) {
 						add_cell_to_pred(curr_prediction, sim_time, {neighbor->position.x, neighbor->position.y});
+					} else {
+						add_cell_to_pred(curr_control_pred, sim_time, {neighbor->position.x, neighbor->position.y});
 					}
 				}
-			} else {
-				// Remove neighbor from neighbor map
-				neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), n_idx), neighbors.end());
+			}
+
+			// TODO: below method messed with neighbors list in real-time, may want to implement a way that doesn't to speed up execution
+			// }  else if (neighbor->state != PRESCRIBED_FIRE) {
+			// 	// Remove neighbor from neighbor map
+			// 	neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), n_idx), neighbors.end());
 
 				// Update neighbor map
-				neighbor_map[cell->id] = neighbors;
-			}
-
+				// neighbor_map[cell->id] = neighbors;
+			// }
 		}
+
+		// Update burning cell fuel content
+		std::pair<float, float> ign_info = ign_info_map.at(cell->id);
 		
+		// Get fuel consumption factor for cell
+		double w = FuelConstants::fuel_consumption_factor_table.at(cell->fuelType);
+
+		// Update ignition clock
+		float ign_clock = ign_info.first;
+		ign_clock += t_step;
+		float fuel_at_ign = ign_info.second;
+
+		// // Get cell burnout threshold
+		float burnout_thresh;
 		if (cell->state == PRESCRIBED_FIRE) {
-			cell->fuelContent -= 0.05;
+			burnout_thresh = ControlledBurnParams::burnout_fuel_frac * fuel_at_ign;
+			w *= ControlledBurnParams::consumption_factor_adj;
 
-			if (cell->fuelContent <= 0.3) {
-				cell->state = FUEL;
-				return true;
-			}
-
-			// TODO: Necessary to keep track of partially burned cells?
+		} else {
+			burnout_thresh = FuelConstants::burnout_thresh;
 		}
 
-		return neighbors.empty(); // Return true if cell should be removed
+		// Update ignition info map
+		ign_info_map[cell->id] = {ign_clock, fuel_at_ign};
+		cell->fuelContent = fuel_at_ign * std::min(1.0, std::exp(-ign_clock/w));
+
+		// Check if burnt out or no more burnable neighbors
+		bool burnt_out = cell->fuelContent <= burnout_thresh;
+		bool no_burnable_neighbors = neighbors.empty();
+
+		if (burnt_out) { // Set cell state if it's fuel content is below burnout threshold
+			if (cell->state == PRESCRIBED_FIRE) {
+				cell->state = FUEL;
+			} else {
+				cell->state = BURNT;
+			}
+		} else if (no_burnable_neighbors) { // Set state and fuel content appropriately if no more burnable neighbors
+			if (cell->state == PRESCRIBED_FIRE) {
+				cell->fuelContent = ign_info_map[cell->id].second * ControlledBurnParams::burnout_fuel_frac;
+				cell->state = FUEL;
+			} else {
+				cell->fuelContent = 0;
+				cell->state = BURNT;
+			}
+		}
+
+		return burnt_out || no_burnable_neighbors; // Return true if cell should be removed
 	});
 
 	// Erase cells without burnable neighbors from curr_fires
@@ -572,14 +626,15 @@ int main(int argc, char* argv[]) {
     char* dir_path = dirname(path_dup);
     std::string base_path = std::string(dir_path) + "/../bin/";
     std::string output_file = base_path + "prediction.bin";
+	std::string control_output_file = base_path + "control_prediction.bin";
     const char* cell_filename = argv[1];
 
 	// Get sim parameters from input string
 	string line;
 	getline(cin, line);
 	stringstream ss(line);
-	ss  >> preprocess_actions >> batch_size >> total_action_entries >> bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
-	
+	ss  >> fire_start_time_h >> batch_size >> total_action_entries >> bias >> horizon >> t_step >> c_size >> rows >> cols >> wind_forecast_t_step;
+
 	// Construct wind forecast
 	WindVec wv;
 	while (ss >> wv.mag_m_s >> wv.dir_rad) {
@@ -605,29 +660,31 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
+    close(fd);
+
 	// Format array of cells in a 2d grid analogous to numpy array
 	cellGrid.resize(rows, std::vector<Cell*>(cols, nullptr));
 	std::vector<Cell> init_cells(rows * cols);
+    std::vector<Cell*> curr_fires;
+	std::vector<Cell*> init_fires;
+	
 	for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             cellGrid[i][j] = cells + i * cols + j;
 			init_cells[i * cols + j] = *cellGrid[i][j];
-        }
-    }
 
-    // Get cells that start initially on fire
-    std::vector<Cell*> curr_fires;
-	std::vector<Cell*> init_fires;
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            if (cellGrid[i][j]->state == WILDFIRE) {
+			// Push cells that start initially on fire to init_fires
+			if (cellGrid[i][j]->state == WILDFIRE) {
                 init_fires.push_back(cellGrid[i][j]);
             }
         }
     }
 
-    close(fd);
+	// Populate cached neighbors for easy reset
+	precompute_neighbors();
 
+	action_queue_vec.resize(batch_size);
+	
 	if (argc == 3) {
 		// If actions input file, load it
 		const char* action_filename = argv[2];
@@ -649,8 +706,6 @@ int main(int argc, char* argv[]) {
 			return 1;
 		}
 
-		action_queue_vec.resize(batch_size);
-
 		int batch_idx = 0;
 		int idx = 0;
 		while (idx < total_action_entries) {
@@ -665,15 +720,18 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// Resize prediction vec based on batch_size // TODO: make sure this works correctly
+	// Resize prediction vec based on batch_size
 	prediction_vec.resize(batch_size);
+	control_pred_vec.resize(batch_size);
 
 	// Create a random engine
-    std::random_device rd;
-    std::default_random_engine engine(rd());
+	std::random_device rd;
+	std::mt19937 gen(rd());
 
     // Create a distribution from [0, 1) for random number generation
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
+	std::uniform_real_distribution<> dis(0.0, 1.0);
+
+	double fire_start_time_s = fire_start_time_h * 3600;
 
 	for (int i = 0; i < batch_size; i++) {
 		// Get the action queue for the current simulation
@@ -681,6 +739,7 @@ int main(int argc, char* argv[]) {
 
 		// Set the curr_prediction to the next index in the vec
 		curr_prediction = &prediction_vec[i];
+		curr_control_pred = &control_pred_vec[i];
 
 		// Reset cells to original state
 		std::memcpy(cells, &init_cells[0], rows * cols * sizeof(Cell));
@@ -688,41 +747,37 @@ int main(int argc, char* argv[]) {
 		// Reset curr_fires
 		curr_fires.clear();
 
-		// Reset neighbor_map // TODO: def can find a more efficient method for this
-		for (int i = 0; i < rows; i++) {
-			for (int j = 0; j < cols; j++) {
-				cellGrid[i][j] = cells + i * cols + j;
-				init_cells[i * cols + j] = *cellGrid[i][j];
-				std::vector<std::pair<int, int>> neighbors = get_neighbors(i, j);
-				neighbor_map[cellGrid[i][j]->id] = neighbors;
-			}
-		}
+		// Reset ignition info
+		ign_info_map.clear();
 
-		if (preprocess_actions) { // TODO: need to think about effect of wind forecast
+		if (fire_start_time_h > 0.0) {
 			// Process actions first
 			sim_time = 0.0;
 			bool actions_processed = false;
+			bool time_elapsed = false;
 
-			while (!actions_processed) {
-				iterate(curr_fires, engine, dist);
+			while (!actions_processed && !time_elapsed) {
+				iterate(curr_fires, gen, dis);
 
 				sim_time += t_step;
 				actions_processed = curr_action_queue.empty() && curr_fires.empty();
+				time_elapsed = sim_time >= fire_start_time_s;
 			}
 		}
-
-		// Reset the sim clock
-		sim_time = 0.0;
+		// Set sim clock to fire start time
+		sim_time = fire_start_time_s;
 
 		// Populate curr_fires again
 		for (Cell* fire_cell : init_fires) {
 			curr_fires.push_back(fire_cell);
+			ign_info_map[fire_cell->id] = {0.0, fire_cell->fuelContent};
 		}
 
 		// Start sim loop
 		bool done = false;
 		while (!done) { 
-			iterate(curr_fires, engine, dist);
+			iterate(curr_fires, gen, dis);
+
 			sim_time += t_step;
 			done = curr_fires.empty() || sim_time >= (horizon * 3600);
 		}
@@ -733,6 +788,7 @@ int main(int argc, char* argv[]) {
 
 	// Write results to memory-mapped file
 	writePredToFile(output_file, prediction_vec);
+	writePredToFile(control_output_file, control_pred_vec);
 
 	return 0;
 }
