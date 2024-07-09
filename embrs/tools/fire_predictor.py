@@ -10,20 +10,14 @@ towards a more or less conservative prediction.
 
 """
 from embrs.fire_simulator.fire import FireSim
-from embrs.fire_simulator.wind import Wind
 from embrs.base_classes.base_fire import BaseFireSim
-from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs, ControlledBurnParams, cell_type, action_type
+from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs, cell_type, action_type
 from embrs.utilities.action import *
 from embrs.utilities.fire_util import RoadConstants as rc
 
 from shapely.geometry import Point
 
-import cProfile
-import pstats
-
 import numpy as np
-import heapq
-import copy
 import mmap
 import subprocess
 import struct
@@ -60,6 +54,7 @@ class FirePredictor(BaseFireSim):
         self.cell_filename = os.path.join(self.bin_folder, 'cells.dat')
         self.action_filename = os.path.join(self.bin_folder, 'actions.dat')
         self.output_path = os.path.join(self.bin_folder, 'prediction.bin')
+        self.control_output_path = os.path.join(self.bin_folder, 'control_prediction.bin')
 
         if time_step_s is None:
             time_step_s = orig_fire.time_step * 2
@@ -67,12 +62,16 @@ class FirePredictor(BaseFireSim):
         self._time_step = time_step_s
         self._cell_size = cell_size_m
 
+        # TODO: Should we stick to single fuel type or use full fuel map?
         if not isinstance(fuel_type, int) or fuel_type <= 0 or fuel_type > 13:
             if fuel_type != -1:
                 orig_fire.logger.log_message("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
                 print("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
 
             fuel_type = UtilFuncs.get_dominant_fuel_type(orig_fire.base_fuel_map)
+
+        fuel_map = orig_fire.fuel_map
+        fuel_res = orig_fire.fuel_res
 
         self.bias = bias
 
@@ -114,7 +113,7 @@ class FirePredictor(BaseFireSim):
                 self._cell_grid[j, i]['id'] = id
                 
                 self._cell_grid[j, i]['state'] = CellStates.FUEL # TODO: define states in pyhton
-                self._cell_grid[j, i]['indices']['i'] = j # TODO: check indices
+                self._cell_grid[j, i]['indices']['i'] = j
                 self._cell_grid[j, i]['indices']['j'] = i
 
                 if j % 2 == 0:
@@ -129,6 +128,13 @@ class FirePredictor(BaseFireSim):
                 self._cell_grid[j, i]['fuelType'] = fuel_type
                 self._cell_grid[j, i]['fuelContent'] = 1.0
                 self._cell_grid[j, i]['changed'] = False
+
+                self._cell_grid[j, i]['moisture'] = 0.08
+
+                fuel_col = int(np.floor(x_pos/fuel_res))
+                fuel_row = int(np.floor(y_pos/fuel_res))
+
+                self._cell_grid[j, i]['fuelType'] = fuel_type #fuel_map[fuel_row, fuel_col]
 
                 # Set cell elevation from topography map
                 top_col = int(np.floor(x_pos/topography_res))
@@ -208,7 +214,7 @@ class FirePredictor(BaseFireSim):
                         if road_cell['state'] == CellStates.FIRE:
                             road_cell['state'] = CellStates.FUEL
 
-                        road_cell['fuelContent'] = rc.road_fuel_vals[road[1]] # TODO: check that this and fire break operation changes value in cell_grid
+                        road_cell['fuelContent'] = rc.road_fuel_vals[road[1]]
 
 
         # Write cell data to binary file
@@ -225,7 +231,7 @@ class FirePredictor(BaseFireSim):
             mm.write(self._cell_grid.tobytes())
             mm.close()
 
-    def run_prediction_batch(self, batch_size, action_seq_batch = None, preprocess_actions:bool = False) -> dict:
+    def run_prediction_batch(self, batch_size, action_seq_batch = None, fire_start_time_h:float = 0.0, output_control_prediction:bool = False) -> dict:
         if action_seq_batch is not None:
             actions, total_actions = self.convert_to_action_type(action_seq_batch)
 
@@ -246,7 +252,7 @@ class FirePredictor(BaseFireSim):
             total_actions = 0
 
         # Pass in fire prediction settings
-        params = f"{int(preprocess_actions)} {batch_size} {total_actions} {self.bias} {self.time_horizon_hr} {self.time_step} {self.cell_size} {self.shape[0]} {self.shape[1]} {self.wind_t_step} {self.wind_forecast_str}"
+        params = f"{fire_start_time_h} {batch_size} {total_actions} {self.bias} {self.time_horizon_hr} {self.time_step} {self.cell_size} {self.shape[0]} {self.shape[1]} {self.wind_t_step} {self.wind_forecast_str}"
 
         current_script_dir = os.path.dirname(os.path.abspath(__file__))
         executable_path = os.path.join(current_script_dir, '..', 'executable', 'fire_prediction')
@@ -260,11 +266,18 @@ class FirePredictor(BaseFireSim):
             print("Executable terminated with the following errors: ")
             print("Error output: ", result.stderr)
 
+        print(result.stdout)
+ 
         predictions = self.read_data(self.output_path)
 
-        return predictions
+        if output_control_prediction:
+            control_predictions = self.read_data(self.control_output_path)
+            return predictions, control_predictions
 
-    def run_prediction(self, action_sequence:list = None, preprocess_actions:bool = False) -> dict:
+        else:
+            return predictions
+
+    def run_prediction(self, action_sequence:list = None, fire_start_time_h:float = 0.0 , output_control_prediction:bool = False) -> dict:
         """Run a prediction
 
         :param action_sequence: Action sequence that should be completed during the course of 
@@ -283,9 +296,15 @@ class FirePredictor(BaseFireSim):
         else:
             action_vec = None
 
-        pred_vec = self.run_prediction_batch(batch_size, action_vec, preprocess_actions)
+        if not output_control_prediction:
+            pred_vec = self.run_prediction_batch(batch_size, action_vec, fire_start_time_h, output_control_prediction)
 
-        return pred_vec[0]
+            return pred_vec[0]
+
+        else:
+            pred_vec, control_pred_vec = self.run_prediction_batch(batch_size, action_vec, fire_start_time_h, output_control_prediction)
+
+            return pred_vec[0], control_pred_vec[0]
 
     def convert_to_action_type(self, batch_action_sequence):
 
