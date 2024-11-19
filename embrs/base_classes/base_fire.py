@@ -317,7 +317,7 @@ class BaseFireSim:
             dead_m_ext = neighbor._fuel_type._dead_m_ext
             dead_m = neighbor._dead_m
             fm_ratio = dead_m/dead_m_ext
-            e_m = self._calc_fuel_moisture_effect(fm_ratio)
+            e_m = calc_fuel_moisture_effect(fm_ratio)
             nc_factor = neighbor.fuel_content
 
             curr_entry['e_m'] = e_m
@@ -367,20 +367,6 @@ class BaseFireSim:
         curr_entry['v_prop'] = v_prop
         return prob, v_prop
 
-    def _calc_fuel_moisture_effect(self, fm_ratio: float) -> float:
-        """Calculate the fuel moisture effect factor (e_m) based on the fuel moisture ratio
-
-        :param fm_ratio: fuel moisture ratio, defined as dead fuel moisture over the dead moisture
-                            of extinction. min(fm_ratio, 1) is used in the calculation of e_m.
-        :type fm_ratio: float
-        :return: fuel moisture effect factor (e_m)
-        :rtype: float
-        """
-
-        fm_ratio = min([fm_ratio, 1])
-        e_m = -4.5*((fm_ratio-0.5)**3) + 0.5625
-
-        return e_m
 
     def _calc_slope_effect(self, curr_cell: Cell, neighbor: Cell) -> Tuple[float, float, int]:
         """Calculate the effect of the slope on the spread probability. Returns the slope effect
@@ -472,8 +458,8 @@ class BaseFireSim:
         :rtype: Tuple[float, float]
         """
 
-        x_coords = np.array([cell.x_pos for cell in self.curr_fires])
-        y_coords = np.array([cell.y_pos for cell in self.curr_fires])
+        x_coords = np.array([cell.x_pos for cell in self.curr_fires if cell.fire_type == FireTypes.WILD])
+        y_coords = np.array([cell.y_pos for cell in self.curr_fires if cell.fire_type == FireTypes.WILD])
 
         return np.mean(x_coords), np.mean(y_coords)
 
@@ -1142,3 +1128,18 @@ class BaseFireSim:
         """List of shapely polygons that were initially ignited at the start of the sim
         """
         return self._initial_ignition
+
+def calc_fuel_moisture_effect(fm_ratio: float) -> float:
+    """Calculate the fuel moisture effect factor (e_m) based on the fuel moisture ratio
+
+    :param fm_ratio: fuel moisture ratio, defined as dead fuel moisture over the dead moisture
+                        of extinction. min(fm_ratio, 1) is used in the calculation of e_m.
+    :type fm_ratio: float
+    :return: fuel moisture effect factor (e_m)
+    :rtype: float
+    """
+
+    fm_ratio = min([fm_ratio, 1])
+    e_m = -4.5*((fm_ratio-0.5)**3) + 0.5625
+
+    return e_m
