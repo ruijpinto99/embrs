@@ -172,8 +172,8 @@ class FireSim(BaseFireSim):
         if self.logger:
             self.logger.add_to_cache(self._curr_updates.copy(), self.curr_time_s)
 
-        if self.agents_added:
-            self.logger.add_to_agent_cache(self._get_agent_updates(), self.curr_time_s)
+            if self.agents_added:
+                self.logger.add_to_agent_cache(self._get_agent_updates(), self.curr_time_s)
 
     def update_fuel_contents(self):
         """Update the fuel content of all the burning cells based on the mass-loss algorithm in 
