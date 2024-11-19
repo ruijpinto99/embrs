@@ -14,6 +14,8 @@ import json
 from typing import Callable, Tuple
 import numpy as np
 import time
+from datetime import datetime
+from tkcalendar import DateEntry
 
 from embrs.utilities.fire_util import FuelConstants
 from embrs.base_classes.control_base import ControlClass
@@ -393,6 +395,77 @@ class MapGenFileSelector(FileSelectBase):
 
         self.root.withdraw()
         self.root.quit()
+
+class HistoricFireSelector(MapGenFileSelector):
+    """Class used to prompt user for historic fire data along with map generation files
+    """
+    def __init__(self):
+        """Constructor method, populates tk window with necessary elements and initializes variables"""
+        super().__init__()
+
+        # Define new variables
+        self.ignition_date = tk.StringVar()
+        self.scenario_start_date = tk.StringVar()
+        self.ignition_lat = tk.DoubleVar()
+        self.ignition_lon = tk.DoubleVar()
+
+        frame = self.create_frame(self.root)
+
+        # Create fields for Ignition Date and Scenario Start Date
+        tk.Label(frame, text="Ignition Date:").pack(pady=5)
+        self.ignition_date_entry = DateEntry(frame, textvariable=self.ignition_date, date_pattern="y-mm-dd")
+        self.ignition_date_entry.pack(pady=5)
+
+        tk.Label(frame, text="Scenario Start Date:").pack(pady=5)
+        self.scenario_start_date_entry = DateEntry(frame, textvariable=self.scenario_start_date, date_pattern="y-mm-dd")
+        self.scenario_start_date_entry.pack(pady=5)
+
+        # Create fields for Ignition Location (Lat, Lon)
+        ignition_location_frame = tk.Frame(frame)
+        ignition_location_frame.pack(padx=10, pady=5)
+
+        tk.Label(ignition_location_frame, text="Ignition Latitude:").grid(row=0, column=0)
+        self.lat_entry = tk.Entry(ignition_location_frame, textvariable=self.ignition_lat)
+        self.lat_entry.grid(row=0, column=1)
+
+        tk.Label(ignition_location_frame, text="Ignition Longitude:").grid(row=0, column=2)
+        self.lon_entry = tk.Entry(ignition_location_frame, textvariable=self.ignition_lon)
+        self.lon_entry.grid(row=0, column=3)
+
+        # Modify the submit button callback to include validation for dates and location
+        self.submit_button.config(command=self.submit)
+
+    def submit(self):
+        """Override the submit method to include validation for historic fire data"""
+        # Validate the ignition date and scenario start date
+        try:
+            ignition_date = datetime.strptime(self.ignition_date.get(), "%Y-%m-%d")
+            scenario_start_date = datetime.strptime(self.scenario_start_date.get(), "%Y-%m-%d")
+            if scenario_start_date <= ignition_date:
+                raise ValueError("Scenario Start Date must be after Ignition Date.")
+        except ValueError as e:
+            tk.messagebox.showerror("Date Error", str(e))
+            return
+
+        # Validate the ignition location (latitude and longitude)
+        if not (-90 <= self.ignition_lat.get() <= 90):
+            tk.messagebox.showerror("Input Error", "Latitude must be between -90 and 90.")
+            return
+        if not (-180 <= self.ignition_lon.get() <= 180):
+            tk.messagebox.showerror("Input Error", "Longitude must be between -180 and 180.")
+            return
+
+        # Call the original submit method to handle the map generation part
+        super().submit()
+
+        # Extend the result dictionary with the additional data
+        self.result["Ignition Date"] = self.ignition_date.get()
+        self.result["Scenario Start Date"] = self.scenario_start_date.get()
+        self.result["Ignition Latitude"] = self.ignition_lat.get()
+        self.result["Ignition Longitude"] = self.ignition_lon.get()
+
+        # Close the window after successful submission
+        self.root.quit() 
 
 class SimFolderSelector(FileSelectBase):
     """Class used to prompt user for inputs to set up a sim
