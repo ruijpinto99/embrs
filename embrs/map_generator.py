@@ -41,10 +41,6 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
     :type min_cell_size: float
     :raises ValueError: if elevation and fuel data selected are not from the same region
     """
-    # Initialize figure for GUI
-    fig = plt.figure(figsize=(15, 10))
-    plt.tick_params(left = False, right = False, bottom = False, labelleft = False,
-                    labelbottom = False)
 
     # Get file paths for all data files
     save_path = file_params['Output Map Folder']
@@ -58,8 +54,11 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
     import_roads = file_params['Import Roads']
 
     if not uniform_elev and not uniform_fuel:
+        print("Starting fuel parsing")
         fuel_data, fuel_bounds = parse_fuel_data(fuel_path, import_roads)
+        print("Finished fuel parsing")
         topography_data, elev_bounds = parse_elevation_data(top_path, data_res, min_cell_size)
+        print("Finished topography parsing")
 
         # Ensure that the elevation and fuel data are from same region
         for e_bound, f_bound in zip(elev_bounds, fuel_bounds):
@@ -108,13 +107,24 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
         bounds = None
 
     if import_roads:
+        print("Starting road data retrieval")
         # get road data
         metadata_path = file_params['Metadata Path']
         road_data, bounds = get_road_data(metadata_path)
         if road_data is not None:
             roads = parse_road_data(road_data, bounds, fuel_data)
+
+        print("Finished road retrieval")
     else:
         roads = None
+
+    return {
+        'save_path': save_path,
+        'fuel_data': fuel_data,
+        'topography_data': topography_data,
+        'roads': roads,
+        'bounds': bounds
+    }
 
     # Get user input from GUI
     user_data = get_user_data(fig)
@@ -575,19 +585,33 @@ def rotate_and_buffer_data(array: np.ndarray, no_data_value: int, order = 3) -> 
     array = np.where(array == no_data_value, -100, array)
 
     # find top left corner
-    for x in range(array.shape[0]):
-        if array[0][x] != -100:
-            corner_1 = (x, 0)
+    corner_1 = None
+    for i in range(array.shape[1]):
+        for x in range(array.shape[0]):
+            if array[i][x] != -100:
+                corner_1 = (x, i)
+                break
+
+        if corner_1 is not None:
             break
 
     # find bottom left corner
-    for y in range(array.shape[1]):
-        if array[y][0] != -100:
-            corner_2 = (0, y)
+    corner_2 = None
+    for i in range(array.shape[0]):
+        for y in range(array.shape[1]):
+            if array[y][i] != -100:
+                corner_2 = (i, y)
+                break
+        
+        if corner_2 is not None:
             break
+    
+    if corner_2 == 0:
+        angle = 0
+    else:
+        angle = np.arctan(corner_1[0]/corner_2[1]) * (180/np.pi)
 
     # rotate data to align it with x, y axes
-    angle = np.arctan(corner_1[0]/corner_2[1]) * (180/np.pi)
     rotated_data = ndimage.rotate(array, angle, order=order)
 
     # Get the indices of valid elevation values
@@ -602,8 +626,8 @@ def rotate_and_buffer_data(array: np.ndarray, no_data_value: int, order = 3) -> 
     # Trim data
     new_array = rotated_data[min_row:max_row, min_col:max_col]
 
-    # buffer 5 values on each side to remove any garbage data
-    new_array = new_array[5:-5, 5:-5]
+    # buffer 10 values on each side to remove any garbage data
+    new_array = new_array[10:-10, 10:-10]
 
     return new_array
 
@@ -772,7 +796,15 @@ def main():
         print("User exited before submitting necessary files.")
         sys.exit(0)
 
-    generate_map_from_file(file_params, DATA_RESOLUTION, 1)
+    # Initialize figure for GUI
+    fig = plt.figure(figsize=(15, 10))
+    plt.tick_params(left = False, right = False, bottom = False, labelleft = False,
+                    labelbottom = False)
+
+    params = generate_map_from_file(file_params, DATA_RESOLUTION, 1)
+    user_data = get_user_data(fig)
+    save_to_file(params['save_path'], params['fuel_data'], params['topography_data'], params['roads'], user_data, params['bounds'])
+
 
 if __name__ == "__main__":
     main()
