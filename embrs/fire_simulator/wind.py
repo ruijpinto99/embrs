@@ -84,83 +84,9 @@ class Wind:
             rel_angle = np.arccos(cos_rel_angle)
             rel_angle = np.degrees(rel_angle)
             adj_vel_kmh = max(self.wind_speed * 3.6 - 8, 0)
-            alpha_w = self.interpolate_wind_adjustment(adj_vel_kmh, rel_angle)
+            alpha_w = interpolate_wind_adjustment(adj_vel_kmh, rel_angle)
 
         return alpha_w, k_w
-
-    def interpolate_parameters(self, wind_speed: float) -> Tuple[float, float, float]:
-        """Calculates the parametes for the Lorentzian function based on the input wind speed.
-        Interpolates a series of Lorentzian fits to determine the parameters.
-
-        :param wind_speed: wind speed in km/h to find parameters for
-        :type wind_speed: float
-        :return: Peak amplitude (A), Full width at half maximum (gamma), and constant offset (C)
-                 of the Lorentzian
-        :rtype: Tuple[float, float, float]
-        """
-
-        param_mapping = WindAdjustments.wind_speed_param_mapping
-
-        sorted_speeds = sorted(param_mapping.keys())
-
-        if wind_speed in sorted_speeds:
-            return param_mapping[wind_speed]
-
-        # Find two wind speeds closest to the given wind speed for interpolation
-        v_lower = max([s for s in sorted_speeds if s <= wind_speed])
-        v_upper = min([s for s in sorted_speeds if s >= wind_speed])
-
-        # Extract parameters for the two closest wind speeds
-        A_lower, gamma_lower, C_lower = param_mapping[v_lower]
-        A_upper, gamma_upper, C_upper = param_mapping[v_upper]
-
-        # Calculate weights for interpolation
-        w1 = (v_upper - wind_speed) / (v_upper - v_lower)
-        w2 = 1 - w1
-
-        # Interpolate the parameters
-        A_interp = w1 * A_lower + w2 * A_upper
-        gamma_interp = w1 * gamma_lower + w2 * gamma_upper
-        C_interp = w1 * C_lower + w2 * C_upper
-
-        return A_interp, gamma_interp, C_interp
-
-    def lorentzian(self, x: float, A: float, gamma: float, C: float) -> float:
-        """Calculate the output of a Lorentzian function with the given input parameters.
-
-            :param x: Point to calculate the output of the Lorentzian for, representing the
-                      relative angle in degrees.
-            :type x: float
-            :param A: Peak amplitude of the Lorentzian peak.
-            :type A: float
-            :param gamma: Scale parameter related to the full width at half maximum (FWHM) of the
-                          peak.
-            :type gamma: float
-            :param C: Constant baseline offset of the Lorentzian peak.
-            :type C: float
-            :return: The value of the Lorentzian function at point x.
-            :rtype: float
-        """
-        return A / (1 + (x/gamma)** 2) + C
-
-    def interpolate_wind_adjustment(self, wind_speed_kmh: float, direction: float) -> float:
-        """Calculates the alpha_w parameter which models the probability adjustment due to the
-        wind. Interpolates a series of lorentzian functions that define the adjustment factor.
-
-        :param wind_speed_kmh: wind speed in km/h
-        :type wind_speed_kmh: float
-        :param direction: direction of wind in degrees relative to the propagation direction being
-                          considered
-        :type direction: float
-        :return: wind adjustment factor, alpha_w
-        :rtype: float
-        """
-
-        # Interpolate the parameters for the given wind speed
-        A, gamma, C = self.interpolate_parameters(wind_speed_kmh)
-
-        # Calculate the interpolated value using the Lorentzian function
-        return self.lorentzian(direction, A, gamma, C)
 
     @property
     def vec(self) -> list:
@@ -200,3 +126,78 @@ class Wind:
         """Current index the wind is on within its forecast.
         """
         return self._curr_index
+
+
+def interpolate_parameters(wind_speed: float) -> Tuple[float, float, float]:
+    """Calculates the parametes for the Lorentzian function based on the input wind speed.
+    Interpolates a series of Lorentzian fits to determine the parameters.
+
+    :param wind_speed: wind speed in km/h to find parameters for
+    :type wind_speed: float
+    :return: Peak amplitude (A), Full width at half maximum (gamma), and constant offset (C)
+                of the Lorentzian
+    :rtype: Tuple[float, float, float]
+    """
+
+    param_mapping = WindAdjustments.wind_speed_param_mapping
+
+    sorted_speeds = sorted(param_mapping.keys())
+
+    if wind_speed in sorted_speeds:
+        return param_mapping[wind_speed]
+
+    # Find two wind speeds closest to the given wind speed for interpolation
+    v_lower = max([s for s in sorted_speeds if s <= wind_speed])
+    v_upper = min([s for s in sorted_speeds if s >= wind_speed])
+
+    # Extract parameters for the two closest wind speeds
+    A_lower, gamma_lower, C_lower = param_mapping[v_lower]
+    A_upper, gamma_upper, C_upper = param_mapping[v_upper]
+
+    # Calculate weights for interpolation
+    w1 = (v_upper - wind_speed) / (v_upper - v_lower)
+    w2 = 1 - w1
+
+    # Interpolate the parameters
+    A_interp = w1 * A_lower + w2 * A_upper
+    gamma_interp = w1 * gamma_lower + w2 * gamma_upper
+    C_interp = w1 * C_lower + w2 * C_upper
+
+    return A_interp, gamma_interp, C_interp
+
+def lorentzian(x: float, A: float, gamma: float, C: float) -> float:
+    """Calculate the output of a Lorentzian function with the given input parameters.
+
+        :param x: Point to calculate the output of the Lorentzian for, representing the
+                    relative angle in degrees.
+        :type x: float
+        :param A: Peak amplitude of the Lorentzian peak.
+        :type A: float
+        :param gamma: Scale parameter related to the full width at half maximum (FWHM) of the
+                        peak.
+        :type gamma: float
+        :param C: Constant baseline offset of the Lorentzian peak.
+        :type C: float
+        :return: The value of the Lorentzian function at point x.
+        :rtype: float
+    """
+    return A / (1 + (x/gamma)** 2) + C
+
+def interpolate_wind_adjustment(wind_speed_kmh: float, direction: float) -> float:
+    """Calculates the alpha_w parameter which models the probability adjustment due to the
+    wind. Interpolates a series of lorentzian functions that define the adjustment factor.
+
+    :param wind_speed_kmh: wind speed in km/h
+    :type wind_speed_kmh: float
+    :param direction: direction of wind in degrees relative to the propagation direction being
+                        considered
+    :type direction: float
+    :return: wind adjustment factor, alpha_w
+    :rtype: float
+    """
+
+    # Interpolate the parameters for the given wind speed
+    A, gamma, C = interpolate_parameters(wind_speed_kmh)
+
+    # Calculate the interpolated value using the Lorentzian function
+    return lorentzian(direction, A, gamma, C)
