@@ -473,8 +473,6 @@ void iterate(std::vector<Cell*>& curr_fires, std::mt19937& engine, std::uniform_
 			if ((neighbor->state == FUEL && neighbor->fuelContent > min_neighbor_fuel) || 
 				(cell->state == WILDFIRE && neighbor->state == PRESCRIBED_FIRE)) {
 
-				
-
 				// Calculate ignition prob
 				std::pair<float, float> prob_output = calc_prob(cell, neighbor);
 
@@ -674,7 +672,7 @@ int main(int argc, char* argv[]) {
 			init_cells[i * cols + j] = *cellGrid[i][j];
 
 			// Push cells that start initially on fire to init_fires
-			if (cellGrid[i][j]->state == WILDFIRE) {
+			if (cellGrid[i][j]->state == WILDFIRE || cellGrid[i][j]->state == PRESCRIBED_FIRE) {
                 init_fires.push_back(cellGrid[i][j]);
             }
         }
