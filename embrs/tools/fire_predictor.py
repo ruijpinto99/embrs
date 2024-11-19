@@ -9,7 +9,7 @@ towards a more or less conservative prediction.
     :members:
 
 """
-from embrs.fire_simulator.fire import FireSim
+from embrs.fire_simulator.fire import FireSim, Cell
 from embrs.base_classes.base_fire import BaseFireSim
 from embrs.utilities.fire_util import FireTypes, CellStates, UtilFuncs, cell_type, action_type
 from embrs.utilities.action import *
@@ -63,12 +63,12 @@ class FirePredictor(BaseFireSim):
         self._cell_size = cell_size_m
 
         # TODO: Should we stick to single fuel type or use full fuel map?
-        if not isinstance(fuel_type, int) or fuel_type <= 0 or fuel_type > 13:
-            if fuel_type != -1:
-                orig_fire.logger.log_message("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
-                print("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
+        # if not isinstance(fuel_type, int) or fuel_type <= 0 or fuel_type > 13:
+        #     if fuel_type != -1:
+        #         orig_fire.logger.log_message("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
+        #         print("Invalid fuel type passed to prediction model, defaulted to dominant fuel type in original map")
 
-            fuel_type = UtilFuncs.get_dominant_fuel_type(orig_fire.base_fuel_map)
+        #     fuel_type = UtilFuncs.get_dominant_fuel_type(orig_fire.base_fuel_map)
 
         fuel_map = orig_fire.fuel_map
         fuel_res = orig_fire.fuel_res
@@ -91,8 +91,24 @@ class FirePredictor(BaseFireSim):
 
         self.time_horizon_hr = time_horizon_hr
 
+        has_prescribed_burns = False
+
+        wildfires = []
+        prescribed_fires = []
+
+        for fire in orig_fire.curr_fires:
+            if fire.fire_type == FireTypes.WILD:
+                wildfires.append(fire)
+            else:
+                has_prescribed_burns = True
+                prescribed_fires.append(fire)
+
+
         # extract initial ignition from curr_fires of orig_fire
-        initial_ignition = UtilFuncs.get_cell_polygons(orig_fire.curr_fires)
+        initial_ignition = UtilFuncs.get_cell_polygons(wildfires)
+        
+        if has_prescribed_burns:
+            prescribed_ignition = UtilFuncs.get_cell_polygons(prescribed_fires)
 
         sim_size = orig_fire.size
         burnt_cells = UtilFuncs.get_cell_polygons(orig_fire._burnt_cells)
@@ -134,7 +150,7 @@ class FirePredictor(BaseFireSim):
                 fuel_col = int(np.floor(x_pos/fuel_res))
                 fuel_row = int(np.floor(y_pos/fuel_res))
 
-                self._cell_grid[j, i]['fuelType'] = fuel_type #fuel_map[fuel_row, fuel_col]
+                self._cell_grid[j, i]['fuelType'] = fuel_map[fuel_row, fuel_col]
 
                 # Set cell elevation from topography map
                 top_col = int(np.floor(x_pos/topography_res))
@@ -163,6 +179,28 @@ class FirePredictor(BaseFireSim):
 
                         if polygon.contains(Point(x_pos, y_pos)) and fuel_type <= 13:
                             self._cell_grid[row, col]['state'] = CellStates.FIRE # TODO: define states in python
+
+        
+        # Set prescribed ignitions
+        if has_prescribed_burns:
+            for polygon in prescribed_ignition:
+                minx, miny, maxx, maxy = polygon.bounds
+
+                # Get row and col indices for bounding box
+                min_row = int(miny // (cell_size_m * 1.5))
+                max_row = int(maxy // (cell_size_m * 1.5))
+                min_col = int(minx // (cell_size_m * np.sqrt(3)))
+                max_col = int(maxx // (cell_size_m * np.sqrt(3)))
+
+                for row in range(min_row, max_row + 1):
+                    for col in range(min_col, max_col + 1):
+                        if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
+
+                            x_pos = self._cell_grid[row, col]['position']['x']
+                            y_pos = self._cell_grid[row, col]['position']['y']
+
+                            if polygon.contains(Point(x_pos, y_pos)) and fuel_type <= 13:
+                                self._cell_grid[row, col]['state'] = 3 # TODO: define states in python
 
         if burnt_cells is not None:
             for polygon in burnt_cells:
