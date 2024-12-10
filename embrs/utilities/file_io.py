@@ -217,6 +217,8 @@ class MapGenFileSelector(FileSelectBase):
         self.uniform_elev = tk.BooleanVar()
         self.uniform_elev.trace("w", self.uniform_options_toggled)
         self.topography_map_filename = tk.StringVar()
+        self.aspect_map_filename = tk.StringVar()
+        self.slope_map_filename = tk.StringVar()
         self.output_map_folder = tk.StringVar()
         self.import_roads = tk.BooleanVar()
         self.import_roads.set(False)
@@ -257,6 +259,17 @@ class MapGenFileSelector(FileSelectBase):
         tk.Checkbutton(self.elev_frame, text="Uniform Elevation",
                        variable=self.uniform_elev).grid(row=0, column=3)
 
+        # Create frame for aspect map selection
+        _, _, self.asp_button, self.asp_frame = self.create_file_selector(frame,
+                                                "Aspect Map: ", self.aspect_map_filename,
+            [("Tagged Image File Format","*.tif"), ("Tagged Image File Format","*.tiff")])
+
+
+        # Create frame for slope map selection
+        _, _, self.slope_button, self.slope_frame = self.create_file_selector(frame,
+                                                "Slope Map: ", self.slope_map_filename,
+            [("Tagged Image File Format","*.tif"), ("Tagged Image File Format","*.tiff")])
+
 
         # Create frame for importing roads
         import_road_frame = tk.Frame(frame)
@@ -292,6 +305,8 @@ class MapGenFileSelector(FileSelectBase):
         if self.uniform_fuel.get() and self.uniform_elev.get():
             self.fuel_button.configure(state='disabled')
             self.elev_button.configure(state='disabled')
+            self.asp_button.configure(state='disabled')
+            self.slope_button.configure(state='disabled')
             self.height_entry.config(state='normal')
             self.width_entry.config(state='normal')
             self.import_roads_button.config(state='disabled')
@@ -300,6 +315,8 @@ class MapGenFileSelector(FileSelectBase):
         elif self.uniform_fuel.get() and not self.uniform_elev.get():
             self.fuel_button.configure(state='disabled')
             self.elev_button.configure(state='active')
+            self.elev_button.configure(state='active')
+            self.asp_button.configure(state='active')
             self.height_entry.config(state='disabled')
             self.width_entry.config(state='disabled')
             self.import_roads_button.config(state='active')
@@ -307,6 +324,8 @@ class MapGenFileSelector(FileSelectBase):
         elif not self.uniform_fuel.get() and self.uniform_elev.get():
             self.fuel_button.configure(state='active')
             self.elev_button.configure(state='disabled')
+            self.slope_button.configure(state='disabled')
+            self.asp_button.configure(state='disabled')
             self.height_entry.config(state='disabled')
             self.width_entry.config(state='disabled')
             self.import_roads_button.config(state='active')
@@ -314,6 +333,8 @@ class MapGenFileSelector(FileSelectBase):
         else:
             self.fuel_button.configure(state='active')
             self.elev_button.configure(state='active')
+            self.slope_button.configure(state='active')
+            self.asp_button.configure(state='active')
             self.width_entry.config(state='disabled')
             self.height_entry.config(state='disabled')
             self.import_roads_button.config(state='active')
@@ -332,7 +353,7 @@ class MapGenFileSelector(FileSelectBase):
         """
         # Check that all fields are filled before enabling submit button
         if all([(self.fuel_map_filename.get() or self.uniform_fuel.get()),
-                (self.topography_map_filename.get() or self.uniform_elev.get()),
+                ((self.topography_map_filename.get() and self.aspect_map_filename.get() and self.slope_map_filename.get()) or self.uniform_elev.get()),
                  self.output_map_folder.get()]):
 
             self.submit_button.config(state='normal')
@@ -348,6 +369,8 @@ class MapGenFileSelector(FileSelectBase):
             # check that metadata.xml exists
             elev_path = os.path.dirname(self.topography_map_filename.get())
             fuel_path = os.path.dirname(self.fuel_map_filename.get())
+            asp_path  = os.path.dirname(self.aspect_map_filename.get())
+            slope_path = os.path.dirname(self.slope_map_filename.get())
 
             if os.path.exists(elev_path + "/metadata.xml"):
                 metadata_path = elev_path + "/metadata.xml"
@@ -385,9 +408,13 @@ class MapGenFileSelector(FileSelectBase):
         if self.uniform_elev.get():
             self.result["Uniform Elev"] = True
             self.result["Topography Map Path"] = ""
+            self.result["Aspect Map Path"] = ""
+            self.result["Slope Map Path"] = ""
         else:
             self.result["Uniform Elev"] = False
             self.result["Topography Map Path"] = self.topography_map_filename.get()
+            self.result["Aspect Map Path"] = self.aspect_map_filename.get()
+            self.result["Slope Map Path"] = self.slope_map_filename.get()
 
         if self.uniform_elev.get() and self.uniform_fuel.get():
             self.result["width m"] = self.sim_width.get()

@@ -29,6 +29,7 @@ from typing import Tuple
 import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
+from functools import lru_cache
 
 cell_type = np.dtype([
     ('id', np.int32),
@@ -47,6 +48,22 @@ action_type = np.dtype([
     ('time', np.float32),
     ('value', np.float32)
 ])
+
+class SpreadDecomp:
+    self_loc_to_neighbor_loc_mapping = {
+        1: [(7, 'A')],
+        2: [(6, 'A'), (10, 'B')],
+        3: [(9, 'B')],
+        4: [(8, 'B'), (12, 'C')],
+        5: [(11, 'C')],
+        6: [(10, 'C'), (2, 'D')],
+        7: [(1, 'D')],
+        8: [(12, 'D'), (4, 'E')],
+        9: [(3, 'E')],
+        10: [(2, 'E'), (6, 'F')],
+        11: [(5, 'F')],
+        12: [(4, 'F'), (8, 'A')]
+    }
 
 class CellStates:
     """Enumeration of the possible cell states.
@@ -276,12 +293,25 @@ class HexGridMath:
                                 (-1,0): [-1,0]}
 
     odd_neighborhood_mapping = {(1,0): [1,0], (1,1): [np.cos(hex_angle), np.sin(hex_angle)],
-                                (0,1): [np.cos(hex_angle), np.sin(hex_angle)], (-1,0): [-1,0],
+                                (0,1): [-np.cos(hex_angle), np.sin(hex_angle)], (-1,0): [-1,0],
                                 (0,-1): [-np.cos(hex_angle), -np.sin(hex_angle)],
                                 (1, -1): [np.cos(hex_angle), -np.sin(hex_angle)]}
 
     even_neighborhood = [(-1,1), (0, 1), (1,0), (0, -1), (-1, -1), (-1,0)]
+    even_neighbor_letters = {'F': (-1, 1),
+                            'A':(0, 1),
+                            'B':(1, 0),
+                            'C': (0, -1),
+                            'D': (-1, -1),
+                            'E': (-1, 0)}
+
     odd_neighborhood = [(1,0), (1,1), (0,1), (-1,0), (0,-1), (1, -1)]
+    odd_neighbor_letters = {'B': (1, 0),
+                            'A': (1, 1),
+                            'F': (0, 1),
+                            'E': (-1, 0),
+                            'D': (0, -1),
+                            'C': (1, -1)}
 
 class UtilFuncs:
     """Various utility functions that are useful across numerous files.
@@ -415,3 +445,82 @@ class UtilFuncs:
             (x - s * np.sqrt(3) / 2, y + s / 2)
         ]
         return vertices
+    
+
+    def get_dist(edge_loc, idx_diff, cell_size):
+        # Keys equal to difference between indices
+        odd_loc_distance_dict = {
+            1: cell_size / 2,
+            2: (np.sqrt(3)/2) * cell_size, # Law of sines
+            3: (np.sqrt(7)/2) * cell_size, # Law of cosines
+            4: (3 * cell_size) / 2,
+            5: (np.sqrt(13) * cell_size) / 2, # Law of cosines
+            6: np.sqrt(3) * cell_size
+
+        }
+
+        even_loc_distance_dict = {
+            2: cell_size,
+            3: (np.sqrt(7)/2) * cell_size,
+            4: np.sqrt(3) * cell_size,
+            5: (np.sqrt(13) * cell_size) / 2,
+            6: 2 * cell_size,
+        }
+
+        if edge_loc %  2 == 0:
+            return even_loc_distance_dict[idx_diff]
+        else:
+            return odd_loc_distance_dict[idx_diff]
+
+    @lru_cache
+    def get_ign_parameters(edge_loc: int, cell_size):
+        if edge_loc % 2 == 0:
+            # Ignition is at a corner point
+            start_angle = (30 * edge_loc + 120) % 360
+            end_angle = (start_angle + 120)
+
+            directions = np.linspace(start_angle, end_angle, 9)
+
+            start_end_point = (edge_loc + 2) % 12 or 12
+            end_end_point = (start_end_point + 8) % 12 or 12
+
+        else:
+            # Ignition is along an edge
+            start_angle = (30 * edge_loc + 90) % 360
+            end_angle = (start_angle + 180)
+
+            directions = np.linspace(start_angle, end_angle, 11)
+
+            start_end_point = (edge_loc + 1) % 12 or 12
+            end_end_point = (12 + (edge_loc - 1)) % 12 or 12
+
+        directions = np.array([direction % 360 for direction in directions])
+
+        if end_end_point < start_end_point:
+            self_end_points = np.concatenate([
+                np.arange(start_end_point, 13),
+                np.arange(1, end_end_point + 1)
+            ])
+        
+        else:
+            self_end_points = np.arange(start_end_point, end_end_point + 1)
+
+        end_points = []
+        distances = []
+
+        for end_point in self_end_points:
+
+            idx_diff = np.abs(end_point - edge_loc)
+
+            if idx_diff > 6:
+                idx_diff = 12 - idx_diff
+
+
+            dist = UtilFuncs.get_dist(edge_loc, idx_diff, cell_size)
+
+            distances.append(dist)
+
+            neighbor_locs = SpreadDecomp.self_loc_to_neighbor_loc_mapping[end_point]
+            end_points.append(neighbor_locs)
+
+        return directions, distances, end_points

@@ -10,6 +10,7 @@ interface properties and functions.
 from typing import Tuple
 from shapely.geometry import Point
 import numpy as np
+from embrs.utilities.rothermel import calc_propagation_in_cell
 
 from embrs.utilities.fire_util import CellStates, FireTypes
 from embrs.utilities.fire_util import RoadConstants as rc
@@ -17,6 +18,7 @@ from embrs.utilities.fire_util import HexGridMath as hex
 from embrs.utilities.fire_util import ControlledBurnParams
 from embrs.fire_simulator.cell import Cell
 from embrs.fire_simulator.fuel import Fuel
+from embrs.utilities.fuel_models import Anderson13
 from embrs.fire_simulator.wind import Wind
 from embrs.base_classes.agent_base import AgentBase
 
@@ -76,8 +78,8 @@ class BaseFireSim:
     :type display_freq_s: int, optional
     """
 
-    def __init__(self, fuel_map: np.ndarray, fuel_res: float, topography_map: np.ndarray,
-                topography_res: float, wind_vec: Wind, roads: list, fire_breaks: list,
+    def __init__(self, fuel_map: np.ndarray, fuel_res: float, topography_map: np.ndarray, topography_res: float, aspect_map: np.ndarray,
+                aspect_res: float, slope_map: np.ndarray, slope_res: float, wind_vec: Wind, roads: list, fire_breaks: list,
                 time_step: int, cell_size: float, duration_s: float, initial_ignition: list,
                 size: tuple, burnt_cells: list = None, display_freq_s = 300):
         """Constructor method to initialize a fire simulation instance. Saves input parameters,
@@ -127,12 +129,19 @@ class BaseFireSim:
         self._fire_breaks = fire_breaks
         self.base_topography = topography_map
         self._topography_map = np.flipud(topography_map)
+        self.base_slope = slope_map
+        self._slope_map = np.flipud(slope_map)
+        self.base_aspect = aspect_map
+        self._aspect_map = np.flipud(aspect_map)
         self.base_fuel_map = fuel_map
         self._fuel_map = np.flipud(fuel_map)
         self._wind_vec = wind_vec
-        self._topography_res = topography_res
+        self._aspect_res = aspect_res
+        self._slope_res = slope_res
         self._fuel_res = fuel_res
         self._initial_ignition = initial_ignition
+
+        self.starting_ignitions = []
 
         # Populate cell_grid with cells
         id = 0
@@ -152,7 +161,20 @@ class BaseFireSim:
                 fuel_col = int(np.floor(cell_x/fuel_res)) - 1
                 fuel_row = int(np.floor(cell_y/fuel_res)) - 1
                 fuel_key = self._fuel_map[fuel_row, fuel_col]
-                new_cell._set_fuel_type(Fuel(fuel_key))
+                new_cell._set_fuel_type(Anderson13(fuel_key))
+
+                # Set cell aspect from aspect map
+                aspect_col = int(np.floor(cell_x/aspect_res))
+                aspect_row = int(np.floor(cell_y/aspect_res))
+
+                upslope_aspect = (self._aspect_map[aspect_row, aspect_col] + 180) % 360 # TODO: THIS SHOULD BE DONE ELSEWHERE
+
+                new_cell._set_aspect(upslope_aspect)
+
+                # Set cell slope from slope map
+                slope_col = int(np.floor(cell_x/slope_res))
+                slope_row = int(np.floor(cell_y/slope_res))
+                new_cell._set_slope(self._slope_map[slope_row, slope_col])
 
                 # Add cell to the backing array
                 self._cell_grid[j,i] = new_cell
@@ -256,12 +278,10 @@ class BaseFireSim:
                 for col in range(min_col, max_col + 1):
                     if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
                         cell = self._cell_grid[row, col]
-                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type._fuel_type <= 13:
+                        if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type.burnable:
                             cell._set_fire_type(FireTypes.WILD)
                             cell._set_state(CellStates.FIRE)
-                            cell.ignition_clock = 0
-                            self._curr_fires_cache.append(cell)
-
+                            self.starting_ignitions.append((cell, 6))
 
     def _calc_prob(self, curr_cell: Cell, neighbor: Cell, disp: tuple) -> Tuple[float, float]:
         """Calculate the probability of curr_cell igniting neighbor at the current instant and the

@@ -71,7 +71,7 @@ class Visualizer:
         if artists is None or collections is None:
             print("Initializing visualization... ")
             burnt_patches = []
-            alpha_arr = [0, 1]
+            # alpha_arr = [0, 1]
             break_fuel_arr = [0, 1]
 
             # Add low and high polygons to prevent weird color mapping
@@ -95,24 +95,24 @@ class Visualizer:
                                      numVertices=6, radius=sim.cell_size, orientation=0)
 
                     if curr_cell.state == CellStates.FUEL:
-                        color = fc.fuel_color_mapping[curr_cell.fuel_type.fuel_type]
+                        color = fc.fuel_color_mapping[curr_cell.fuel_type.model_num]
                         if color not in added_colors:
                             added_colors.append(color)
                             legend_elements.append(mpatches.Patch(color = color,
                                                 label = curr_cell.fuel_type.name))
 
-                        if curr_cell.fuel_content < 1 and curr_cell.fuel_type.fuel_type < 90:
-                            fire_breaks.append(polygon)
-                            break_fuel_arr.append(curr_cell.fuel_content)
+                        # if curr_cell.fuel_content < 1 and curr_cell.fuel_type.burnable:
+                        #     fire_breaks.append(polygon)
+                        #     break_fuel_arr.append(curr_cell.fuel_content)
 
-                        else:
-                            polygon.set(color = color)
-                            tree_patches.append(polygon)
+                        # else:
+                        polygon.set(color = color)
+                        tree_patches.append(polygon)
 
                     elif curr_cell.state == CellStates.FIRE:
                         if curr_cell.fire_type == FireTypes.WILD:
                             fire_patches.append(polygon)
-                            alpha_arr.append(curr_cell.fuel_content)
+                            # alpha_arr.append(curr_cell.fuel_content)
                         else:
                             prescribe_patches.append(polygon)
 
@@ -127,9 +127,9 @@ class Visualizer:
                 breaks_coll.set(array= break_fuel_arr, cmap=mpl.colormaps["gist_gray"])
 
             fire_coll = PatchCollection(fire_patches, edgecolor='none', facecolor='#F97306')
-            if len(alpha_arr) > 0:
-                alpha_arr = [float(i)/sum(alpha_arr) for i in alpha_arr]
-                fire_coll.set(array=alpha_arr, cmap=mpl.colormaps["gist_heat"])
+            # if len(alpha_arr) > 0:
+            #     alpha_arr = [float(i)/sum(alpha_arr) for i in alpha_arr]
+            #     fire_coll.set(array=alpha_arr, cmap=mpl.colormaps["gist_heat"])
 
             prescribe_coll = PatchCollection(prescribe_patches, edgecolor='none', facecolor='b')
 
@@ -308,7 +308,7 @@ class Visualizer:
         fire_patches = []
         tree_patches = []
         burnt_patches = []
-        alpha_arr = [0, 1]
+        # alpha_arr = [0, 1]
 
         # Add low and high polygons to prevent weird color mapping
         r = 1/np.sqrt(3)
@@ -327,23 +327,23 @@ class Visualizer:
                                               radius=sim.cell_size, orientation=0)
 
             if c.state == CellStates.FUEL:
-                color = np.array(list(mcolors.to_rgba(fc.fuel_color_mapping[c.fuel_type.fuel_type])))
+                color = np.array(list(mcolors.to_rgba(fc.fuel_color_mapping[c.fuel_type.model_num])))
                 # Scale color based on cell's fuel content
-                color = color *  c.fuel_content
+                color = color # *  c.fuel_content
                 polygon.set_facecolor(color)
                 tree_patches.append(polygon)
 
                 if c.dead_m > 0.08: # fuel moisture not nominal
                     soak_xs.append(c.x_pos)
                     soak_ys.append(c.y_pos)
-                    c_val = c.dead_m/fc.dead_fuel_moisture_ext_table[c.fuel_type.fuel_type]
+                    c_val = c.dead_m/fc.dead_fuel_moisture_ext_table[c.fuel_type.model_num]
                     c_val = np.min([1, c_val])
                     c_vals.append(c_val)
 
             elif c.state == CellStates.FIRE:
                 if c.fire_type == FireTypes.WILD:
                     fire_patches.append(polygon)
-                    alpha_arr.append(c.fuel_content)
+                    # alpha_arr.append(c.fuel_content)
                 else:
                     prescribe_patches.append(polygon)
 
@@ -358,13 +358,13 @@ class Visualizer:
         fire_patches = np.array(fire_patches)
         prescribe_patches = np.array(prescribe_patches)
         burnt_patches = np.array(burnt_patches)
-        alpha_arr = np.array(alpha_arr)
+        # alpha_arr = np.array(alpha_arr)
 
         tree_coll =  PatchCollection(tree_patches, match_original=True)
 
         fire_coll = PatchCollection(fire_patches, edgecolor='none', facecolor='#F97306')
-        if len(alpha_arr) > 0:
-            fire_coll.set(array=alpha_arr, cmap=mpl.colormaps["gist_heat"])
+        # if len(alpha_arr) > 0:
+        #     fire_coll.set(array=alpha_arr, cmap=mpl.colormaps["gist_heat"])
 
         prescribe_coll = PatchCollection(prescribe_patches, edgecolor='none', facecolor='pink')
 

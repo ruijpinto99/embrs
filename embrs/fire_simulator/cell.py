@@ -10,7 +10,8 @@ from shapely.geometry import Polygon
 from embrs.utilities.fire_util import ControlledBurnParams
 from embrs.utilities.fire_util import CellStates, FireTypes
 from embrs.utilities.fire_util import HexGridMath as hex
-from embrs.fire_simulator.fuel import Fuel
+
+from embrs.utilities.fuel_models import Anderson13
 
 import copy
 
@@ -34,7 +35,7 @@ class Cell:
     :type fuel_type: :class:`~fire_simulator.fuel.Fuel`, optional
     """
 
-    def __init__(self, id: int, col: int, row: int, cell_size: float, z = 0.0, fuel_type=Fuel(1)):
+    def __init__(self, id: int, col: int, row: int, cell_size: float, z = 0.0, aspect = 0.0, slope_deg = 0.0, fuel_type=Anderson13(1)):
         """Constructor method to initialize a cell instance. Calculates x,y position in Cartesian
         plane.
         """
@@ -46,6 +47,10 @@ class Cell:
 
         # z is the elevation of cell in m
         self._z = z
+
+        self.aspect = aspect # upslope direction
+        self.slope_deg = slope_deg
+
 
         self._cell_size = cell_size # defined as the edge length of hexagon
         self._cell_area = self.calc_cell_area()
@@ -59,18 +64,19 @@ class Cell:
         self._y_pos = row * cell_size * 1.5
 
         self._fuel_type = fuel_type
-        self._fuel_content = fuel_type.init_fuel
-        self.fuel_at_ignition = None
-        self.W = None
-        self.ignition_clock = 0
-
+    
         # Variables to track how long a given cell will take to burnout
         self._t_d = None
 
         # Variable that tracks which type of fire a burning cell is
         self._fire_type = -1
 
-        self._state = fuel_type.init_state
+        if self._fuel_type.burnable:
+            self._state = CellStates.FUEL
+        
+        else:
+            self._staste = CellStates.BURNT
+
         self.cont_state = 0 # continuous state, only used for FirePrediction model
 
         self._neighbors = []
@@ -91,6 +97,9 @@ class Cell:
 
         self.initial_state = None
 
+        self.scheduled = False
+        self.scheduled_t = np.inf
+
     def get_copy_of_state(self):
         return copy.deepcopy(self)
 
@@ -109,6 +118,15 @@ class Cell:
 
         self._z = z
 
+
+    def _set_slope(self, slope: float):
+
+        self.slope_deg = slope
+
+
+    def _set_aspect(self, aspect: float):
+        self.aspect = aspect
+
     def _set_fuel_content(self, fuel_content: float):
         """Set the fuel content remaining in a cell.
 
@@ -118,15 +136,13 @@ class Cell:
         self._fuel_content = fuel_content
         self.changed = True
 
-    def _set_fuel_type(self, fuel_type: Fuel):
+    def _set_fuel_type(self, fuel_type: Anderson13):
         """Set the fuel type of a cell.
 
         :param fuel_type: Fuel type, one of the 13 Anderson FBFMs
         :type fuel_type: :class:`~fire_simulator.fuel.Fuel`
         """
         self._fuel_type = fuel_type
-        self._fuel_content = fuel_type._init_fuel
-        self._state = fuel_type._init_state
         self.changed = True
 
     def _set_vprop(self, v_prop: float):
@@ -149,26 +165,7 @@ class Cell:
         """
         self._state = state
         self.changed = True
-
-        if state == CellStates.FIRE:
-            if self._fuel_type._fuel_type <= 13: # Make sure cell is combustible type
-                prop_speed = self._fuel_type._nominal_vel/60
-                self.W = self._fuel_type._consumption_factor
-
-                if self._fire_type == FireTypes.PRESCRIBED:
-                    prop_speed *= ControlledBurnParams.nominal_vel_adj
-                    self.W *= ControlledBurnParams.consumption_factor_adj
-
-                self._set_vprop(prop_speed)
-
-                if self._fuel_content == 1:        
-                    self.ignition_clock = 0 - self._t_d # start ignition clock when fire has propagated across entire cell
-                    self.fuel_at_ignition = self._fuel_content
-                else:
-                    adjusted_ignition_clock = -self._fuel_type._consumption_factor * np.log(self._fuel_content)
-                    self.ignition_clock = 0 - adjusted_ignition_clock
-                    self.fuel_at_ignition = self._fuel_content
-
+            
     def _set_fire_type(self, fire_type: FireTypes):
         """Set the type of fire at a cell
 
@@ -197,7 +194,6 @@ class Cell:
         """
         return (f"(id: {self.id}, {self.x_pos}, {self.y_pos}, {self.z}, "
                 f"type: {self.fuel_type.name}, "
-                f"fuel_content: {self.fuel_content}, "
                 f"state: {self.state}")
 
     def calc_cell_area(self):
@@ -251,14 +247,15 @@ class Cell:
         cell_data = {
             "id": self.id,
             "state": self._state,
-            "fuel_content": self._fuel_content,
-            "dead_m": self._dead_m
         }
 
         if self.state == CellStates.FIRE:
             cell_data['fire_type'] = self._fire_type
 
         return cell_data
+
+    def get_spread_directions(self, ignited_pos):
+        return self.DIRECTION_MAP.get(ignited_pos)
 
     # ------ Compare operators overloads ------ #
     def __lt__(self, other):
@@ -316,7 +313,7 @@ class Cell:
         return self._z
 
     @property
-    def fuel_type(self) -> Fuel:
+    def fuel_type(self) -> Anderson13:
         """Type of fuel present at the cell.
         
         Can be any of the 13 Anderson FBFMs

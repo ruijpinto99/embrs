@@ -6,12 +6,15 @@
 
 from tqdm import tqdm
 import numpy as np
+from typing import Tuple
 
 from embrs.base_classes.base_fire import BaseFireSim
-from embrs.utilities.fire_util import CellStates, FireTypes, FuelConstants
+from embrs.utilities.fire_util import CellStates, FireTypes, FuelConstants, UtilFuncs, HexGridMath
 from embrs.utilities.fire_util import ControlledBurnParams
 from embrs.fire_simulator.cell import Cell
 from embrs.fire_simulator.wind import Wind
+
+from embrs.utilities.rothermel import *
 
 class FireSim(BaseFireSim):
     """Fire simulator class utilizing a probabilistic fire model.
@@ -69,8 +72,8 @@ class FireSim(BaseFireSim):
                            to 300
     :type display_freq_s: int, optional
     """
-    def __init__(self, fuel_map: np.ndarray, fuel_res: float, topography_map: np.ndarray,
-                topography_res: float, wind_vec: Wind, roads: list, fire_breaks: list,
+    def __init__(self, fuel_map: np.ndarray, fuel_res: float, topography_map: np.ndarray, topography_res: float, aspect_map: np.ndarray,
+                aspect_res: float, slope_map: np.ndarray, slope_res: float, wind_vec: Wind, roads: list, fire_breaks: list,
                 time_step: int, cell_size: float, duration_s: float, initial_ignition: list,
                 size: tuple, burnt_cells: list = None, display_freq_s = 300):
         """Constructor method to initialize a fire simulation instance. Saves input parameters,
@@ -81,7 +84,7 @@ class FireSim(BaseFireSim):
         print("Simulation Initializing...")
 
         # Fuel fraction to be considered BURNT
-        self.burnout_thresh =FuelConstants.burnout_thresh
+        self.burnout_thresh = FuelConstants.burnout_thresh
 
         self.logger = None
         self.progress_bar = None
@@ -95,16 +98,13 @@ class FireSim(BaseFireSim):
         self._agent_list = []
         self._agents_added = False
 
-        self._curr_fires_cache = []
-        self._curr_fires_anti_cache = []
-        self._curr_fires = set()
+        self._ignition_schedule = {}
 
-        self.w_vals = []
-        self.fuels_at_ignition = []
-        self.ignition_clocks = []
+        self.fireline_ign_threshold = 0.0 #kW/m # TODO: set this properly
 
-        super().__init__(fuel_map, fuel_res, topography_map,
-                topography_res, wind_vec, roads, fire_breaks,
+
+        super().__init__(fuel_map, fuel_res, topography_map, topography_res, aspect_map,
+                aspect_res, slope_map, slope_res, wind_vec, roads, fire_breaks,
                 time_step, cell_size, duration_s, initial_ignition,
                 size, burnt_cells = burnt_cells, display_freq_s= display_freq_s)
 
@@ -121,46 +121,156 @@ class FireSim(BaseFireSim):
         # Update wind
         self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
 
-        # Iterate over currently burning cells
-        for curr_cell in self._curr_fires:
+        # Check schedule for ignitions at the current time step
+        new_ignitions = self.get_scheduled_ignitions()
 
-            # iterate over burnable neighbors
-            neighbors_to_remove = []
-            for neighbor_id, (dx, dy) in curr_cell._burnable_neighbors:
-                neighbor = self._cell_dict[neighbor_id]
+        if self._iters == 0:
+            new_ignitions = self.starting_ignitions
 
-                neighbor_burnable = self.check_if_burnable(curr_cell, neighbor)
+        for cell, loc in new_ignitions:
+            # Set cell state to burning
+            cell._set_state(CellStates.FIRE)
+            cell._set_fire_type(FireTypes.WILD) # TODO: Need to have this set by the cell that ignited its fire type
+            self._updated_cells[cell.id] = cell
 
-                if not neighbor_burnable:
-                    if neighbor.fire_type != FireTypes.PRESCRIBED:
-                        neighbors_to_remove.append((neighbor_id, (dx, dy)))
+            if cell.to_log_format() not in self._curr_updates:
+                self._curr_updates.append(cell.to_log_format())
 
-                else:
-                    prob, v_prop = self._calc_prob(curr_cell, neighbor, (dx, dy))
+            directions, distances, end_points = UtilFuncs.get_ign_parameters(loc, self.cell_size)
 
-                    if np.random.random() < prob:
-                        self.set_state_at_cell(neighbor, CellStates.FIRE, curr_cell.fire_type)
-                        neighbor._set_vprop(v_prop)
-                        # Add cell to update dictionary
-                        self._updated_cells[neighbor.id] = neighbor
+            rothermel_data = calc_propagation_in_cell(cell.fuel_type, directions, self._wind_vec.wind_speed, self._wind_vec.wind_dir_deg, cell.slope_deg, cell.aspect)
 
-                        if neighbor.to_log_format() not in self._curr_updates:
-                            self._curr_updates.append(neighbor.to_log_format())
-
-
-                        if neighbor in self._frontier:
-                            self._frontier.remove(neighbor)
-                    else:
-                        if neighbor not in self._frontier:
-                            self._frontier.add(neighbor)
-
-            curr_cell._burnable_neighbors.difference_update(neighbors_to_remove)
-
-            self.capture_cell_changes(curr_cell)
-
-        self.update_fuel_contents()
+            for i, (r_gamma, I_gamma) in enumerate(rothermel_data):
+                if I_gamma > self.fireline_ign_threshold:
+                    self.schedule_ignition(cell, r_gamma, distances[i], end_points[i])
 
         self.log_changes()
+
+    def schedule_ignition(self, cell: Cell, r_gamma: float, dist: float, end_point):
+        # Calculate how long fire will take to reach end point given local ROS
+        t_to_end_point = dist / r_gamma
+
+        ign_time = self.curr_time_s + t_to_end_point
+        schedule_t = int(np.ceil(ign_time / self._time_step) * self._time_step)
+
+        for pt in end_point:
+            n_loc = pt[0]
+            neighbor = self.get_neighbor_from_end_point(cell, pt)
+
+            # if r_gamma > 0.1:
+            #     print(f"neighbor: {neighbor}")
+            #     print(f"schedule_t: {schedule_t} sec")
+
+            if neighbor:
+                # print(f"Scheduling ignition in: {schedule_t / 60} mins")
+
+                # Check that neighbor state is burnable
+                if neighbor.state == CellStates.FUEL and neighbor.fuel_type.burnable: # TODO: Should we include prescribed burns 
+                    
+                    if not (neighbor.scheduled and neighbor.scheduled_t <= schedule_t):
+
+                        # print(neighbor.scheduled)
+                        # print(f"neighbors scheduled_time: {neighbor.scheduled_t}")
+                        # print()
+
+
+                        # Add ignition to the schedule
+                        if self._ignition_schedule.get(schedule_t):
+                            self._ignition_schedule[schedule_t].append((neighbor, n_loc))
+
+                        else:
+                            self._ignition_schedule[schedule_t] = [(neighbor, n_loc)]
+                        
+                        neighbor.scheduled = True
+                        neighbor.scheduled_t = schedule_t
+
+    def get_scheduled_ignitions(self):
+        # Make sure curr time is an int
+        curr_time_key = int(self.curr_time_s)
+
+        # Get scheduled ignitions
+        new_ignitions = self._ignition_schedule.get(curr_time_key, [])
+
+        # Delete entry from schedule
+        if new_ignitions:
+            del self._ignition_schedule[curr_time_key]
+
+        return new_ignitions
+
+    def get_neighbor_from_end_point(self, cell, end_point) -> Cell:
+        neighbor = None
+
+        neighbor_letter = end_point[1]
+        # Get neighbor based on neighbor_letter
+        if cell._row % 2 == 0:
+            diff_to_letter_map = HexGridMath.even_neighbor_letters
+            
+        else:
+            diff_to_letter_map = HexGridMath.odd_neighbor_letters
+
+        dx, dy = diff_to_letter_map[neighbor_letter]
+
+        row_n = int(cell.row + dy)
+        col_n = int(cell.col + dx)
+
+        if self._grid_height >= row_n >=0 and self._grid_width >= col_n >= 0:
+            neighbor = self._cell_grid[row_n, col_n]
+
+        return neighbor
+
+    def get_rel_wind_direction(self, slope_dir):
+        # TODO: Change wind definition to align with 0 degree north
+        rel_wind_dir = self._wind_vec.wind_dir_deg - slope_dir 
+        if rel_wind_dir < 0:
+            rel_wind_dir += 360
+
+        return rel_wind_dir
+
+    def get_cell_slope(self, cell):
+        # TODO: check that this calculation works correctly
+
+        # Estimate the slope effect within a single cell based on the topography around it
+        dx_total = 0
+        dy_total = 0
+
+        for neighbor_id, _ in cell.neighbors:
+            # Get neighbor
+            neighbor = self._cell_dict[neighbor_id]
+
+            # Calculate change in elevation
+            d_elev = neighbor.z - cell.z
+
+            # Get unit vector pointing in direction of neighbor
+            dx = neighbor.x_pos - cell.x_pos
+            dy = neighbor.y_pos - cell.y_pos
+            dist = np.sqrt(dx ** 2 + dy ** 2)
+            dx /= dist
+            dy /= dist
+
+            # Add difference in elevation distributed along unit vector
+            dx_total += d_elev * dx
+            dy_total += d_elev * dy
+
+        # Calculate average slope percentage
+        rise = np.sqrt(dx_total**2 + dy_total**2)
+        run = dist
+        slope_pct = (rise/run) * 100
+
+        # Calculate average slope direction
+        slope_dir_rad = np.arctan2(dy_total, dx_total)
+        slope_dir_deg = 360 - (np.rad2deg(slope_dir_rad) - 90)
+
+        if slope_dir_deg < 0:
+            slope_dir_deg += 360
+
+        # If slope is negative, convert it to a positive value
+        if slope_pct < 0:
+            slope_pct = -slope_pct
+            slope_dir_deg = (slope_dir_deg + 180) % 360
+
+        slope_angle_deg = abs(np.rad2deg(np.arctan(rise/run)))
+
+        return slope_angle_deg, slope_dir_deg
 
     def log_changes(self):
         """Log the changes in state from the current iteration
@@ -175,59 +285,6 @@ class FireSim(BaseFireSim):
             if self.agents_added:
                 self.logger.add_to_agent_cache(self._get_agent_updates(), self.curr_time_s)
 
-    def update_fuel_contents(self):
-        """Update the fuel content of all the burning cells based on the mass-loss algorithm in 
-            `(Coen 2005) <http://dx.doi.org/10.1071/WF03043>`_
-        """
-        curr_fires = self._curr_fires
-        burnout_thresh = self.burnout_thresh
-        time_step = self.time_step
-
-        ignition_clocks = np.array(self.ignition_clocks)
-        fuels_at_ignition = np.array(self.fuels_at_ignition)
-        w_vals = np.array(self.w_vals)
-
-        ignition_clocks += time_step
-        fuel_contents = fuels_at_ignition * np.minimum(1, np.exp(-ignition_clocks/w_vals))
-
-        relational_dict = self._relational_dict
-        updated_cells = self._updated_cells
-        curr_updates = self._curr_updates
-
-        for cell, fuel_content, ignition_clock in zip(curr_fires, fuel_contents, ignition_clocks):
-            cell._fuel_content = fuel_content
-            cell.ignition_clock = ignition_clock
-
-            burnout_thresh = cell.fuel_at_ignition * ControlledBurnParams.burnout_fuel_frac if cell.fire_type == FireTypes.PRESCRIBED else self.burnout_thresh
-
-            if fuel_content < burnout_thresh:
-                self.set_state_at_cell(cell, CellStates.BURNT)
-                # Add cell to update dictionary
-                self._updated_cells[cell.id] = cell
-
-                if cell.to_log_format() not in self._curr_updates:
-                    self._curr_updates.append(cell.to_log_format())
-
-
-                for neighbor_id, _ in cell.neighbors:
-                    key = (cell.id, neighbor_id)
-                    if key in relational_dict:
-                        del relational_dict[key]
-
-            updated_cells[cell.id] = cell
-            curr_updates.append(cell.to_log_format())
-
-    def capture_cell_changes(self, curr_cell: Cell):
-        """Update data structures with values relating to a burning cell's fuel.
-        
-        Data structures are later used by :py:attr:`~fire_simulator.fire.update_fuel_contents`
-
-        :param curr_cell: Burning cell to grab values from
-        :type curr_cell: Cell
-        """
-        self.w_vals.append(curr_cell.W)
-        self.fuels_at_ignition.append(curr_cell.fuel_at_ignition)
-        self.ignition_clocks.append(curr_cell.ignition_clock)
 
     def _init_iteration(self) -> bool:
         """Set up the next iteration. Reset and update relevant data structures based on last 
@@ -256,12 +313,9 @@ class FireSim(BaseFireSim):
         self.fuels_at_ignition = []
         self.ignition_clocks = []
 
-        if len(self._curr_fires) == 0 or self._curr_time_s >= self._sim_duration:
+        if self._curr_time_s >= self._sim_duration: # TODO: need a way to check if no more ignitions scheduled
             self.progress_bar.close()
 
-            if len(self._curr_fires) == 0:
-                if self.logger:
-                    self.logger.log_message("Fire extinguished! Terminating early.")
             return True
 
         return False

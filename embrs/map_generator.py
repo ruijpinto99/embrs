@@ -42,10 +42,14 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
     :raises ValueError: if elevation and fuel data selected are not from the same region
     """
 
+    print(file_params)
+
     # Get file paths for all data files
     save_path = file_params['Output Map Folder']
     top_path  = file_params['Topography Map Path']
     fuel_path = file_params['Fuel Map Path']
+    asp_path = file_params['Aspect Map Path']
+    slope_path = file_params['Slope Map Path']
 
     uniform_fuel = file_params["Uniform Fuel"]
     uniform_elev = file_params["Uniform Elev"]
@@ -59,6 +63,15 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
         print("Finished fuel parsing")
         topography_data, elev_bounds = parse_elevation_data(top_path, data_res, min_cell_size)
         print("Finished topography parsing")
+        aspect_data, _ = parse_elevation_data(asp_path, data_res, min_cell_size)
+        print("Finished aspect parsing")
+        slope_data, _ = parse_elevation_data(slope_path, data_res, min_cell_size)
+
+        print(f"Fuel data shape: {fuel_data['map'].shape}")
+        print(f"Topography data shape: {topography_data['map'].shape}")
+        print(f"Aspect data shape: {aspect_data['map'].shape}")
+        print(f"Slope data shape: {slope_data['map'].shape}")
+
 
         # Ensure that the elevation and fuel data are from same region
         for e_bound, f_bound in zip(elev_bounds, fuel_bounds):
@@ -67,20 +80,32 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
 
         bounds = elev_bounds
 
-        if fuel_data['width_m'] != topography_data['width_m'] or fuel_data['height_m'] != topography_data['height_m']:
-            # set bounds to the smaller of the 2
 
-            width_m = np.min([fuel_data['width_m'], topography_data['width_m']])
-            height_m = np.min([fuel_data['height_m'], topography_data['height_m']])
+        widths = [fuel_data['width_m'], topography_data['width_m'], aspect_data['width_m'], slope_data['width_m']]
+        heights = [fuel_data['height_m'], topography_data['height_m'], aspect_data['height_m'], slope_data['height_m']]
+
+        widths_equal = all(x == widths[0] for x in widths)
+        heights_equal = all(x == heights[0] for x in heights)
+
+        if not  widths_equal or not heights_equal:
+            # set bounds to the smallest of each
+            width_m = np.min(widths)
+            height_m = np.min(heights)
 
             fuel_data['width_m'] = int(width_m)
             topography_data['width_m'] = int(width_m)
+            aspect_data['width_m'] = int(width_m)
+            slope_data['width_m'] = int(width_m)
             fuel_data['height_m'] = int(height_m)
             topography_data['height_m'] = int(height_m)
+            aspect_data['height_m'] = int(height_m)
+            slope_data['height_m'] = int(height_m)
 
     elif uniform_fuel and not uniform_elev:
         # parse elevation map first
         topography_data, elev_bounds = parse_elevation_data(top_path, data_res, min_cell_size)
+        aspect_data, _ = parse_elevation_data(asp_path, data_res, min_cell_size)
+        slope_data, _ = parse_elevation_data(slope_path, data_res, min_cell_size)
         bounds = elev_bounds
 
         # create uniform fuel map based on dimensions
@@ -96,6 +121,8 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
         # create uniform elevation map based on dimensions
         rows, cols = fuel_data["height_m"], fuel_data["width_m"]
         topography_data = create_uniform_elev_map(rows, cols)
+        aspect_data = create_uniform_elev_map(rows, cols)
+        slope_data = create_uniform_elev_map(rows, cols)
     else:
         # get sim size from parameters
         rows, cols = file_params["height m"], file_params["width m"]
@@ -103,6 +130,8 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
 
         # create uniform elevation and fuel maps based on sim size
         topography_data = create_uniform_elev_map(rows, cols)
+        aspect_data = create_uniform_elev_map(rows, cols)
+        slope_data = create_uniform_elev_map(rows, cols)
         fuel_data = create_uniform_fuel_map(rows, cols, fuel_type)
         bounds = None
 
@@ -122,6 +151,8 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
         'save_path': save_path,
         'fuel_data': fuel_data,
         'topography_data': topography_data,
+        'aspect_data': aspect_data,
+        'slope_data': slope_data,
         'roads': roads,
         'bounds': bounds
     }
@@ -131,7 +162,7 @@ def generate_map_from_file(file_params: dict, data_res: float, min_cell_size: fl
 
     save_to_file(save_path, fuel_data, topography_data, roads, user_data, bounds)
 
-def save_to_file(save_path: str, fuel_data: dict, topography_data: dict,
+def save_to_file(save_path: str, fuel_data: dict, topography_data: dict, aspect_data: dict, slope_data: dict,
                 roads: list, user_data: dict, bounds: list):
     """Save all generated map data to a file specified in 'save_path'
 
@@ -179,7 +210,6 @@ def save_to_file(save_path: str, fuel_data: dict, topography_data: dict,
     if fuel_data['uniform']:
         data['fuel']['fuel type'] = fuel_data['fuel type']
 
-
     # Save topography data
     topography_path = save_path + '/topography.npy'
     np.save(topography_path, topography_data['map'])
@@ -193,6 +223,28 @@ def save_to_file(save_path: str, fuel_data: dict, topography_data: dict,
                         'uniform': topography_data['uniform']
                         }
 
+    aspect_path = save_path + '/aspect.npy'
+    np.save(aspect_path, aspect_data['map'])
+
+    data['aspect'] = {'file': aspect_path,
+                      'width_m': aspect_data['width_m'],
+                      'height_m': aspect_data['height_m'],
+                      'rows': aspect_data['rows'],
+                      'cols': aspect_data['cols'],
+                      'resolution': aspect_data['resolution'],
+                      'uniform': aspect_data['uniform']}
+
+    slope_path = save_path + '/aspect.npy'
+    np.save(slope_path, slope_data['map'])
+
+    data['slope'] = {'file': slope_path,
+                      'width_m': slope_data['width_m'],
+                      'height_m': slope_data['height_m'],
+                      'rows': slope_data['rows'],
+                      'cols': slope_data['cols'],
+                      'resolution': slope_data['resolution'],
+                      'uniform': slope_data['uniform']}
+
     # Save the roads data
     road_path = save_path + '/roads.pkl'
     with open(road_path, 'wb') as f:
@@ -201,6 +253,8 @@ def save_to_file(save_path: str, fuel_data: dict, topography_data: dict,
     data['roads'] = {'file': road_path}
 
     data = data | user_data
+
+    print(data)
 
     # Save data to JSON
     folder_name = os.path.basename(save_path)
@@ -403,9 +457,14 @@ def parse_elevation_data(top_path: str, data_res: float, cell_size: float) -> di
         array = elev_data.read(1)
 
     # Take out no data values
-    no_data_value = elev_data.nodatavals[0]
+    no_data_value = 32767 #elev_data.nodatavals[0]
+
+    print(f"shape before rotate and buffer: {array.shape}")
 
     topography_map = rotate_and_buffer_data(array, no_data_value)
+    
+    print(f"shape after rotate and buffer: {topography_map.shape}")
+
 
     width_m = topography_map.shape[1] * data_res
     height_m = topography_map.shape[0] * data_res
@@ -606,7 +665,7 @@ def rotate_and_buffer_data(array: np.ndarray, no_data_value: int, order = 3) -> 
         if corner_2 is not None:
             break
     
-    if corner_2 == 0:
+    if corner_2[1] == 0:
         angle = 0
     else:
         angle = np.arctan(corner_1[0]/corner_2[1]) * (180/np.pi)
@@ -801,9 +860,11 @@ def main():
     plt.tick_params(left = False, right = False, bottom = False, labelleft = False,
                     labelbottom = False)
 
+    # file_params = {'Output Map Folder': '/Users/rjdp3/Documents/Research/Code/full-stack-burnout/real_fire_eval_scenarios/soberanes_fire/map', 'Metadata Path': '', 'Import Roads': False, 'Uniform Fuel': False, 'Fuel Map Path': '/Users/rjdp3/Documents/Research/Code/full-stack-burnout/real_fire_eval_scenarios/soberanes_fire/raw_data_new/LF2019_FBFM13_200_CONUS/LC19_F13_200.tif', 'Uniform Elev': False, 'Topography Map Path': '/Users/rjdp3/Documents/Research/Code/full-stack-burnout/real_fire_eval_scenarios/soberanes_fire/raw_data_new/LF2020_Elev_220_CONUS/LC20_Elev_220.tif', 'Aspect Map Path': '/Users/rjdp3/Documents/Research/Code/full-stack-burnout/real_fire_eval_scenarios/soberanes_fire/raw_data_new/LF2020_Asp_220_CONUS/LC20_Asp_220.tif', 'Slope Map Path': '/Users/rjdp3/Documents/Research/Code/full-stack-burnout/real_fire_eval_scenarios/soberanes_fire/raw_data_new/LF2020_SlpD_220_CONUS/LC20_SlpD_220.tif'}
+
     params = generate_map_from_file(file_params, DATA_RESOLUTION, 1)
     user_data = get_user_data(fig)
-    save_to_file(params['save_path'], params['fuel_data'], params['topography_data'], params['roads'], user_data, params['bounds'])
+    save_to_file(params['save_path'], params['fuel_data'], params['topography_data'], params['aspect_data'], params['slope_data'], params['roads'], user_data, params['bounds'])
 
 
 if __name__ == "__main__":

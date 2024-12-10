@@ -272,6 +272,8 @@ def save_to_file(params: dict, scenario_data: dict, wind_data: dict):
     save_path = params['save_path']
     fuel_data = params['fuel_data']
     topography_data = params['topography_data']
+    aspect_data = params['aspect_data']
+    slope_data = params['slope_data']
     roads = params['roads']
     bounds = params['bounds']
 
@@ -325,6 +327,28 @@ def save_to_file(params: dict, scenario_data: dict, wind_data: dict):
                         'resolution': topography_data['resolution'],
                         'uniform': topography_data['uniform']
                         }
+
+    aspect_path = save_path + '/aspect.npy'
+    np.save(aspect_path, aspect_data['map'])
+
+    data['aspect'] = {'file': aspect_path,
+                      'width_m': aspect_data['width_m'],
+                      'height_m': aspect_data['height_m'],
+                      'rows': aspect_data['rows'],
+                      'cols': aspect_data['cols'],
+                      'resolution': aspect_data['resolution'],
+                      'uniform': aspect_data['uniform']}
+
+    slope_path = save_path + '/aspect.npy'
+    np.save(slope_path, slope_data['map'])
+
+    data['slope'] = {'file': slope_path,
+                      'width_m': slope_data['width_m'],
+                      'height_m': slope_data['height_m'],
+                      'rows': slope_data['rows'],
+                      'cols': slope_data['cols'],
+                      'resolution': slope_data['resolution'],
+                      'uniform': slope_data['uniform']}
 
     # Save the roads data
     road_path = save_path + '/roads.pkl'

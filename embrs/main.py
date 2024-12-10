@@ -73,6 +73,8 @@ def initialize(params: dict) -> Tuple[FireSim, bool, Visualizer]:
     # Load data files
     topography_map = np.load(data['topography']['file'])
     fuel_map = np.load(data['fuel']['file'])
+    aspect_map = np.load(data['aspect']['file'])
+    slope_map = np.load(data['slope']['file'])
     ignition_dicts = data['initial_ignition']
     initial_ignition = [shape(d) for d in ignition_dicts]
     fire_breaks = [{'geometry': LineString(fb['geometry']['coordinates']),
@@ -84,9 +86,13 @@ def initialize(params: dict) -> Tuple[FireSim, bool, Visualizer]:
     else:
         roads = None
 
+    print(data)
+
     # Save resolution, width, and height into variables
     topography_resolution = data['topography']['resolution']
     fuel_resolution = data['fuel']['resolution']
+    aspect_resolution = data['aspect']['resolution']
+    slope_resolution = data['slope']['resolution']
     width_m = data['topography']['width_m']
     height_m = data['topography']['height_m']
 
@@ -98,7 +104,7 @@ def initialize(params: dict) -> Tuple[FireSim, bool, Visualizer]:
     print("simSize: " + str(sim_size))
 
     # Initialize the simulator
-    fire = FireSim(fuel_map, fuel_resolution, topography_map, topography_resolution, wind_vec,
+    fire = FireSim(fuel_map, fuel_resolution, topography_map, topography_resolution, aspect_map, aspect_resolution, slope_map, slope_resolution, wind_vec,
                    roads, fire_breaks, time_step = time_step, initial_ignition = initial_ignition,
                    size = (width_m, height_m), cell_size=cell_size, duration_s = sim_duration)
 
@@ -205,6 +211,10 @@ def handle_interrupt(logger, fire):
 def sim_loop(params: dict):
     """Main function that gets user input from GUI and runs the specified simulation(s)
     """
+
+    # params = {'input': '/Users/rjdp3/Documents/embrs_release/src/rothermel_sample_map', 'log': '/Users/rjdp3/Documents/Research/rothermel_logs', 'wind': '/Users/rjdp3/Documents/embrs_release/src/sample_wind_forecasts/north_const.json', 't_step': 5, 'cell_size': 10, 'sim_time': 86400.0, 'viz_on': True, 'num_runs': 1, 'user_path': '', 'class_name': '', 'zero_wind': False}
+
+
     num_runs = params['num_runs']
     duration = params['sim_time']
     time_step = params['t_step']
@@ -258,6 +268,12 @@ def sim_loop(params: dict):
     print(f"Finished running {num_runs} simulation(s)")
 
 def main():
+
+    # params = {'input': '/Users/rjdp3/Documents/embrs_release/src/rothermel_sample_map', 'log': '/Users/rjdp3/Documents/Research/rothermel_logs', 'wind': '/Users/rjdp3/Documents/embrs_release/src/sample_wind_forecasts/north_const.json', 't_step': 5, 'cell_size': 10, 'sim_time': 86400.0, 'viz_on': True, 'num_runs': 1, 'user_path': '', 'class_name': '', 'zero_wind': False}
+
+    # sim_loop(params)
+
+
     folder_selector = SimFolderSelector(sim_loop)
     folder_selector.run()
 

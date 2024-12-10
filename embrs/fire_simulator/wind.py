@@ -28,7 +28,7 @@ class Wind:
         print("Configuring wind...")
         wind_dir_rad = forecast[0][1] * (np.pi/180)
         wind_mag_m_s = forecast[0][0]
-        self._vec = [wind_mag_m_s*np.cos(wind_dir_rad), wind_mag_m_s*np.sin(wind_dir_rad)]
+        self._vec = [wind_mag_m_s*np.sin(wind_dir_rad), wind_mag_m_s*np.cos(wind_dir_rad)]
         self._wind_speed = wind_mag_m_s
         self._wind_dir_deg = forecast[0][1]
         self._time_step = time_step
@@ -50,7 +50,7 @@ class Wind:
             self._wind_speed = self.forecast[self.curr_index][0]
             self._wind_dir_deg = self.forecast[self.curr_index][1]
             wind_dir_rad = self.wind_dir_deg * (np.pi/180)
-            self._vec = [self.wind_speed*np.cos(wind_dir_rad),self.wind_speed*np.sin(wind_dir_rad)]
+            self._vec = [self.wind_speed*np.sin(wind_dir_rad), self.wind_speed*np.cos(wind_dir_rad)]
 
             return True
         return False
