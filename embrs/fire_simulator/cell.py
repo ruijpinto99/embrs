@@ -100,6 +100,18 @@ class Cell:
         self.scheduled = False
         self.scheduled_t = np.inf
 
+        self.distances = None
+        self.directions = None
+        self.end_pts = None
+
+        self.fire_spread = np.array()
+        self.r_prev_list = np.array()
+        self.t_elapsed_min = 0
+        self.r_ss = np.array()
+        self.I_ss = np.array()
+
+        self.a_a = 0.115 # TODO: find fuel type dependent values for this
+
     def get_copy_of_state(self):
         return copy.deepcopy(self)
 
@@ -108,6 +120,18 @@ class Cell:
             return self.initial_state
         else:
             raise ValueError("Initial state not stored.")
+
+    def set_real_time_vals(self):
+        # TODO: validate that this works correctly
+        
+        if np.max(self.r_ss) < np.max(self.r_prev_list):
+            # Allow for instant deceleration as in FARSITE
+            self.r_t = self.r_ss
+            self.I_t = self.I_ss
+
+        else:
+            self.r_t = self.r_ss - (self.r_ss - self.r_prev_list) * np.exp(-self.a_a * self.t_elapsed_min)
+            self.I_t = (self.r_t / self.r_ss) * self.I_ss
 
     def _set_elev(self, z: float):
         """Set the elevation of a cell
@@ -165,6 +189,13 @@ class Cell:
         """
         self._state = state
         self.changed = True
+
+        if self._state == CellStates.FIRE:
+            self.fire_spread = np.zeros(len(self.directions))
+            self.r_prev_list = np.zeros(len(self.directions))
+            self.r_ss = np.zeros(len(self.directions))
+            self.I_ss = np.zeros(len(self.directions))
+            self.t_elapsed_min = 0
             
     def _set_fire_type(self, fire_type: FireTypes):
         """Set the type of fire at a cell

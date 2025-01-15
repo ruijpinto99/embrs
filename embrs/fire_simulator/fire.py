@@ -98,9 +98,7 @@ class FireSim(BaseFireSim):
         self._agent_list = []
         self._agents_added = False
 
-        self._ignition_schedule = {}
-
-        self.fireline_ign_threshold = 0.0 #kW/m # TODO: set this properly
+        self._burning_cells = []
 
 
         super().__init__(fuel_map, fuel_res, topography_map, topography_res, aspect_map,
@@ -119,70 +117,94 @@ class FireSim(BaseFireSim):
             return
 
         # Update wind
+        # TODO: this is likely to change with WindNinja
         self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
 
         # Check schedule for ignitions at the current time step
-        new_ignitions = self.get_scheduled_ignitions()
+        new_ignitions = self.get_scheduled_ignitions() # TODO: can just add to new_ignitions directly in schedule_ignition
 
         if self._iters == 0:
             new_ignitions = self.starting_ignitions
+            self._burning_cells = list(self.starting_ignitions)
 
         for cell, loc in new_ignitions:
+            # Get the parameters defining 2D spread for the fire
+            cell.directions, cell.distances, cell.end_pts = UtilFuncs.get_ign_parameters(loc, self.cell_size)
+            
             # Set cell state to burning
             cell._set_state(CellStates.FIRE)
-            cell._set_fire_type(FireTypes.WILD) # TODO: Need to have this set by the cell that ignited its fire type
+            cell._set_fire_type(FireTypes.WILD) # TODO: Deprecate wild vs. prescribed fire 
+
             self._updated_cells[cell.id] = cell
 
             if cell.to_log_format() not in self._curr_updates:
                 self._curr_updates.append(cell.to_log_format())
 
-            directions, distances, end_points = UtilFuncs.get_ign_parameters(loc, self.cell_size)
+        for cell, loc in self._burning_cells:
+            if self.wind_changed: # Conditions have changed # TODO: this may change with WindNinja
+                # Reset the elapsed time counters
+                cell.t_elapsed_min = 0
+                
+                # Set previous rate of spreads to the most recent value
+                cell.r_prev_list = cell.r_t
 
-            rothermel_data = calc_propagation_in_cell(cell.fuel_type, directions, self._wind_vec.wind_speed, self._wind_vec.wind_dir_deg, cell.slope_deg, cell.aspect)
+                # Get steady state ROS and I, along each of cell's directions
+                r_list, I_list = calc_propagation_in_cell(cell.fuel_type, cell.directions, self._wind_vec.wind_speed, self._wind_vec.wind_dir_deg, cell.slope_deg, cell.aspect)
 
-            for i, (r_gamma, I_gamma) in enumerate(rothermel_data):
-                if I_gamma > self.fireline_ign_threshold:
-                    self.schedule_ignition(cell, r_gamma, distances[i], end_points[i])
+                # Store steady-state values
+                cell.r_ss = r_list
+                cell.I_ss = I_list
+
+            # Real-time vals stored in cell.r_t, cell.I_t
+            cell.set_real_time_vals()
+
+            # Update extent of fire spread along each direction
+            cell.fire_spread = cell.fire_spread + (cell.r_t * self._time_step)
+            
+            # TODO: Check if fireline intensity along any direction is high to initiate crown fire
+
+            intersections = np.where(cell.fire_spread > cell.distances)[0]
+
+            for idx in intersections:
+                # TODO: This will be called unnecessarily a few times since end points and neighbors not matched well
+                ignited_neighbors = self.schedule_ignition(cell, r_list[idx], cell.distances[idx], cell.end_points[idx])
+
+                for neighbor in ignited_neighbors:
+                    # Remove neighbor if its already ignited
+                    if neighbor in cell.burnable_neighbors:
+                        cell.burnable_neighbors.remove(neighbor)
+                    
+            # TODO: Likely need to check for if a cell has been burning for too long as well
+            # TODO: Do we want to implement mass-loss approach from before?
+            if not cell.burnable_neighbors:
+                self._burning_cells.remove((cell, loc))
+
+            cell.t_elapsed_min += self.time_step / 60
 
         self.log_changes()
 
     def schedule_ignition(self, cell: Cell, r_gamma: float, dist: float, end_point):
-        # Calculate how long fire will take to reach end point given local ROS
-        t_to_end_point = dist / r_gamma
 
-        ign_time = self.curr_time_s + t_to_end_point
-        schedule_t = int(np.ceil(ign_time / self._time_step) * self._time_step)
+        # TODO: Completely rework this function to perform new ignition calculation
+        # TODO: Scheduling will always take place at the subsequent time-step
+
+        # Calculate how long fire will take to reach end point given local ROS
+
+        ignited_neighbors = []
 
         for pt in end_point:
             n_loc = pt[0]
             neighbor = self.get_neighbor_from_end_point(cell, pt)
 
-            # if r_gamma > 0.1:
-            #     print(f"neighbor: {neighbor}")
-            #     print(f"schedule_t: {schedule_t} sec")
-
             if neighbor:
-                # print(f"Scheduling ignition in: {schedule_t / 60} mins")
-
                 # Check that neighbor state is burnable
-                if neighbor.state == CellStates.FUEL and neighbor.fuel_type.burnable: # TODO: Should we include prescribed burns 
+                if neighbor.state == CellStates.FUEL and neighbor.fuel_type.burnable:
                     
-                    if not (neighbor.scheduled and neighbor.scheduled_t <= schedule_t):
-
-                        # print(neighbor.scheduled)
-                        # print(f"neighbors scheduled_time: {neighbor.scheduled_t}")
-                        # print()
-
-
-                        # Add ignition to the schedule
-                        if self._ignition_schedule.get(schedule_t):
-                            self._ignition_schedule[schedule_t].append((neighbor, n_loc))
-
-                        else:
-                            self._ignition_schedule[schedule_t] = [(neighbor, n_loc)]
-                        
-                        neighbor.scheduled = True
-                        neighbor.scheduled_t = schedule_t
+                    # Make ignition calculation
+                    # TODO: need to implement this
+                    if True:
+                        self.new_ignitions.append((neighbor, n_loc))
+                        ignited_neighbors.append(neighbor)
 
     def get_scheduled_ignitions(self):
         # Make sure curr time is an int

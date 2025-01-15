@@ -2,7 +2,8 @@ from embrs.utilities.fuel_models import Anderson13
 import numpy as np
 
 def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s, wind_dir_deg, slope_angle_deg, slope_dir_deg):
-    
+    # TODO: this needs to be converted to calculate instantaneous values
+
     wind_speed_ft_min = 196.85 * wind_speed_m_s
 
     if slope_angle_deg == 0:
@@ -18,7 +19,8 @@ def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s
     slope_dir = np.deg2rad(slope_dir_deg)
     spread_directions = np.deg2rad(spread_directions)
 
-    output = []
+    r_list = []
+    I_list = []
     for decomp_dir in spread_directions:
         # rate of spread along gamma in ft/min, fireline intensity along gamma in Btu/ft/min
         r_gamma, I_gamma = calc_r_and_i_along_dir(fuel, decomp_dir, wind_speed_ft_min, rel_wind_dir, slope_angle, slope_dir)
@@ -26,9 +28,10 @@ def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s
         r_gamma /= 196.85 # convert to m/s
         I_gamma *= 0.05767 # convert to kW/m # TODO: double check this conversion
 
-        output.append((r_gamma, I_gamma))
+        r_list.append(r_gamma)
+        I_list.append(I_gamma)
 
-    return output
+    return np.array(r_list), np.array(I_list)
 
 def calc_r_0(I_r, flux_ratio, heat_sink):
     R_0 = (I_r * flux_ratio)/heat_sink
