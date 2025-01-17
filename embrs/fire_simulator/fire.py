@@ -99,6 +99,7 @@ class FireSim(BaseFireSim):
         self._agents_added = False
 
         self._burning_cells = []
+        self._new_ignitions = []
 
 
         super().__init__(fuel_map, fuel_res, topography_map, topography_res, aspect_map,
@@ -120,14 +121,11 @@ class FireSim(BaseFireSim):
         # TODO: this is likely to change with WindNinja
         self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
 
-        # Check schedule for ignitions at the current time step
-        new_ignitions = self.get_scheduled_ignitions() # TODO: can just add to new_ignitions directly in schedule_ignition
-
         if self._iters == 0:
-            new_ignitions = self.starting_ignitions
+            self._new_ignitions = self.starting_ignitions
             self._burning_cells = list(self.starting_ignitions)
 
-        for cell, loc in new_ignitions:
+        for cell, loc in self._new_ignitions:
             # Get the parameters defining 2D spread for the fire
             cell.directions, cell.distances, cell.end_pts = UtilFuncs.get_ign_parameters(loc, self.cell_size)
             
@@ -167,7 +165,7 @@ class FireSim(BaseFireSim):
 
             for idx in intersections:
                 # TODO: This will be called unnecessarily a few times since end points and neighbors not matched well
-                ignited_neighbors = self.schedule_ignition(cell, r_list[idx], cell.distances[idx], cell.end_points[idx])
+                ignited_neighbors = self.ignite_neighbors(cell, r_list[idx], cell.end_points[idx])
 
                 for neighbor in ignited_neighbors:
                     # Remove neighbor if its already ignited
@@ -183,12 +181,8 @@ class FireSim(BaseFireSim):
 
         self.log_changes()
 
-    def schedule_ignition(self, cell: Cell, r_gamma: float, dist: float, end_point):
-
-        # TODO: Completely rework this function to perform new ignition calculation
-        # TODO: Scheduling will always take place at the subsequent time-step
-
-        # Calculate how long fire will take to reach end point given local ROS
+    def ignite_neighbors(self, cell: Cell, r_gamma: float, end_point):
+        # Calculate how long fire will take to reach end point given local ROS 
 
         ignited_neighbors = []
 
@@ -199,12 +193,25 @@ class FireSim(BaseFireSim):
             if neighbor:
                 # Check that neighbor state is burnable
                 if neighbor.state == CellStates.FUEL and neighbor.fuel_type.burnable:
-                    
                     # Make ignition calculation
-                    # TODO: need to implement this
-                    if True:
+                    r_ign = self.calc_ignition_ros(cell, neighbor, r_gamma)
+                    
+                    # Check that ignition ros meets threshold
+                    if r_ign > 1e-3: # TODO: Think about using mass-loss calculation to do this or set R_min another way
                         self.new_ignitions.append((neighbor, n_loc))
                         ignited_neighbors.append(neighbor)
+
+    def calc_ignition_ros(self, cell, neighbor, r_gamma):
+        # Get the heat source in the direction of question by eliminating denominator
+        heat_source = r_gamma * calc_heat_sink(cell.fuel_type, cell.dead_m) # TODO: make sure this computation is valid (I think it is)
+
+        # Get the heat sink using the neighbors fuel and moisture content
+        heat_sink = calc_heat_sink(neighbor.fuel, neighbor.dead_m) # TODO: need to implement updating fuel moisture in each cell
+        
+        # Calculate a ignition rate of spread
+        r_ign = heat_source / heat_sink
+
+        return r_ign
 
     def get_scheduled_ignitions(self):
         # Make sure curr time is an int

@@ -1,10 +1,11 @@
 from embrs.utilities.fuel_models import Anderson13
 import numpy as np
 
-def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s, wind_dir_deg, slope_angle_deg, slope_dir_deg):
-    # TODO: this needs to be converted to calculate instantaneous values
-
+def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg):
     wind_speed_ft_min = 196.85 * wind_speed_m_s
+
+    slope_angle_deg = cell.slope_deg
+    slope_dir_deg = cell.aspect
 
     if slope_angle_deg == 0:
         rel_wind_dir_deg = 0
@@ -17,13 +18,13 @@ def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s
     rel_wind_dir = np.deg2rad(rel_wind_dir_deg)
     slope_angle = np.deg2rad(slope_angle_deg)
     slope_dir = np.deg2rad(slope_dir_deg)
-    spread_directions = np.deg2rad(spread_directions)
+    spread_directions = np.deg2rad(cell.directions)
 
     r_list = []
     I_list = []
     for decomp_dir in spread_directions:
         # rate of spread along gamma in ft/min, fireline intensity along gamma in Btu/ft/min
-        r_gamma, I_gamma = calc_r_and_i_along_dir(fuel, decomp_dir, wind_speed_ft_min, rel_wind_dir, slope_angle, slope_dir)
+        r_gamma, I_gamma = calc_r_and_i_along_dir(cell.fuel, decomp_dir, wind_speed_ft_min, rel_wind_dir, slope_angle, slope_dir)
 
         r_gamma /= 196.85 # convert to m/s
         I_gamma *= 0.05767 # convert to kW/m # TODO: double check this conversion
@@ -33,30 +34,43 @@ def calc_propagation_in_cell(fuel: Anderson13, spread_directions, wind_speed_m_s
 
     return np.array(r_list), np.array(I_list)
 
-def calc_r_0(I_r, flux_ratio, heat_sink):
+def calc_r_0(fuel, m_f):
+
+    flux_ratio = calc_flux_ratio(fuel)
+    I_r = calc_I_r(fuel, m_f)
+    heat_sink = calc_heat_sink(fuel, m_f)
+
     R_0 = (I_r * flux_ratio)/heat_sink
 
-    return R_0
+    return R_0, I_r
 
-def calc_I_r(net_fuel_load, sav_ratio, rel_packing_ratio, heat_content, moist_damping, mineral_damping):
+def calc_I_r(fuel, m_f):
 
-    A = 133 * sav_ratio ** (-0.7913)
+    moist_damping = calc_moisture_damping(m_f, fuel.m_x)
+    mineral_damping = calc_mineral_damping()
 
-    max_reaction_vel = (sav_ratio ** 1.5) * (495 + 0.0594 * sav_ratio ** 1.5) ** (-1)
-    opt_reaction_vel = max_reaction_vel * (rel_packing_ratio ** A) * np.exp(A*(1-rel_packing_ratio))
+    A = 133 * fuel.sav_ratio ** (-0.7913)
 
-    I_r = opt_reaction_vel * net_fuel_load * heat_content * moist_damping * mineral_damping
+    max_reaction_vel = (fuel.sav_ratio ** 1.5) * (495 + 0.0594 * fuel.sav_ratio ** 1.5) ** (-1)
+    opt_reaction_vel = max_reaction_vel * (fuel.rel_packing_ratio ** A) * np.exp(A*(1-fuel.rel_packing_ratio))
+
+    I_r = opt_reaction_vel * fuel.net_fuel_load * fuel.heat_content * moist_damping * mineral_damping
 
     return I_r
 
-def calc_flux_ratio(sav_ratio, rho_b):
+def calc_flux_ratio(fuel):
+    rho_b = fuel.rho_b
+    sav_ratio = fuel.sav_ratio
 
     packing_ratio = rho_b / 32    
     flux_ratio = (192 + 0.2595*sav_ratio)**(-1) * np.exp((0.792 + 0.681*sav_ratio**0.5)*(packing_ratio + 0.1))
 
     return flux_ratio
 
-def calc_heat_sink(rho_b, sav_ratio, m_f):
+def calc_heat_sink(fuel, m_f):
+
+    rho_b = fuel.rho_b
+    sav_ratio = fuel.sav_ratio
 
     epsilon = np.exp(-138/sav_ratio)
     Q_ig = 250 + 1116 * m_f
@@ -73,63 +87,41 @@ def calc_r_and_i_along_dir(fuel: Anderson13, decomp_dir, wind_speed, wind_dir, s
     :return: _description_
     :rtype: _type_
     """
-
-    sav_ratio = fuel.sav_ratio
-    net_fuel_load = fuel.net_fuel_load
-    rel_packing_ratio = fuel.rel_packing_ratio
-    heat_content = fuel.heat_content
-    rho_b = fuel.rho_b
-    m_f = fuel.fuel_moisture # TODO: need to figure out how we're handling this
-    m_x = fuel.m_x
-
-    E, B, C = calc_E_B_C(sav_ratio)
-
-    moist_damping = calc_moisture_damping(m_f, m_x)
-    mineral_damping = calc_mineral_damping()
-
-    I_r = calc_I_r(net_fuel_load, sav_ratio, rel_packing_ratio, heat_content, moist_damping, mineral_damping)
-
-    flux_ratio = calc_flux_ratio(sav_ratio, rho_b)
-    heat_sink = calc_heat_sink(rho_b, sav_ratio, m_f)
-
-    R_0 = calc_r_0(I_r, flux_ratio, heat_sink)
-
-    phi_w = calc_wind_factor(wind_speed, rel_packing_ratio, E, B, C)
-    phi_s = calc_slope_factor(slope_angle, rho_b)
-
-    R_h, alpha = calc_r_h(R_0, phi_w, phi_s, wind_dir)
+    m_f = fuel.fuel_moisture # TODO: This should not be a fuel property
+    R_h, R_0, I_r, alpha = calc_r_h(fuel, m_f, wind_speed, slope_angle, wind_dir)
 
     # TODO: Double Check that this is correct
     gamma = abs((alpha + slope_dir) - decomp_dir) % (2*np.pi)
     gamma = np.min([gamma, 2*np.pi - gamma])
 
-    phi_e = calc_effective_wind_factor(R_h, R_0)
-    u_e = calc_effective_wind_speed(phi_e, rel_packing_ratio, E, B, C)
-
-    e = calc_eccentricity(u_e)
+    e = calc_eccentricity(fuel, R_h, R_0)
 
     R_gamma = R_h * ((1 - e)/(1 - e * np.cos(gamma)))
 
-    t_r = 384 / sav_ratio
+    t_r = 384 / fuel.sav_ratio # Residence time
     H_a = I_r * t_r
     I_gamma = H_a * R_gamma
 
     return R_gamma, I_gamma
 
-def calc_E_B_C(sav_ratio):
+def calc_E_B_C(fuel):
+    sav_ratio = fuel.sav_ratio
+
     E = 0.715 * np.exp(-3.59e-4 * sav_ratio)
     B = 0.02526 * sav_ratio ** 0.54
     C = 7.47 * np.exp(-0.133 * sav_ratio**0.55)
 
     return E, B, C
 
-def calc_wind_factor(wind_speed, rel_packing_ratio, E, B, C):
-    phi_w = C * (wind_speed ** B) * rel_packing_ratio ** (-E)
+def calc_wind_factor(fuel, wind_speed):
+
+    E, B, C = calc_E_B_C(fuel)
+    phi_w = C * (wind_speed ** B) * fuel.rel_packing_ratio ** (-E)
 
     return phi_w
 
-def calc_slope_factor(phi, rho_b):
-    packing_ratio = rho_b / 32
+def calc_slope_factor(fuel, phi):
+    packing_ratio = fuel.rho_b / 32
 
     phi_s = 5.275 * (packing_ratio ** (-0.3)) * (np.tan(phi)) ** 2
 
@@ -164,7 +156,7 @@ def calc_effective_wind_factor(R_h, R_0):
 
     return phi_e
 
-def calc_effective_wind_speed(phi_e, rel_packing_ratio, E, B, C):
+def calc_effective_wind_speed(fuel, R_h, R_0):
     """_summary_
 
     :param phi_e: _description_
@@ -180,11 +172,19 @@ def calc_effective_wind_speed(phi_e, rel_packing_ratio, E, B, C):
     :return: _description_
     :rtype: _type_
     """
-    u_e = (((phi_e * rel_packing_ratio**E)/C) ** (1/B))
+
+    E, B, C = calc_E_B_C(fuel)
+    phi_e = calc_effective_wind_factor(R_h, R_0)
+
+
+    u_e = (((phi_e * fuel, fuel.rel_packing_ratio**E)/C) ** (1/B))
 
     return u_e
 
-def calc_eccentricity(u_e):
+def calc_eccentricity(fuel, R_h, R_0):
+
+    u_e = calc_effective_wind_speed(fuel, R_h, R_0)
+
     u_e_mph = u_e * 0.0113636
 
     z = 1 + 0.25 * u_e_mph
@@ -192,7 +192,7 @@ def calc_eccentricity(u_e):
 
     return e
 
-def calc_r_h(R_0, phi_w, phi_s, omega):
+def calc_r_h(fuel, m_f, wind_speed, slope_angle, omega, R_0 = None, I_r = None):
     """Calculate the rate of spread in the direction of maximum spread, heading fire
 
     :param R_0: _description_
@@ -206,6 +206,12 @@ def calc_r_h(R_0, phi_w, phi_s, omega):
     :return: _description_
     :rtype: _type_
     """
+    
+    if R_0 is None or I_r is None:
+        R_0, I_r = calc_r_0(fuel, m_f)
+
+    phi_w = calc_wind_factor(fuel, wind_speed)
+    phi_s = calc_slope_factor(fuel, slope_angle)
 
     t = 60
 
@@ -221,5 +227,5 @@ def calc_r_h(R_0, phi_w, phi_s, omega):
 
     alpha = np.arcsin(y/D_h) # TODO: check that this is ok without abs(y)
 
-    return R_h, alpha
+    return R_h, R_0, I_r, alpha
 
