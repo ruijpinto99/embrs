@@ -79,8 +79,8 @@ class Cell:
 
         self.cont_state = 0 # continuous state, only used for FirePrediction model
 
-        self._neighbors = []
-        self._burnable_neighbors = []
+        self._neighbors = {}
+        self._burnable_neighbors = {}
 
         # dead fuel moisture at this cell, value based on Anderson fuel model paper
         self._dead_m = 0.08
@@ -103,12 +103,15 @@ class Cell:
         self.distances = None
         self.directions = None
         self.end_pts = None
+        self.r_t = None
 
-        self.fire_spread = np.array()
-        self.r_prev_list = np.array()
+        self.fire_spread = np.array([])
+        self.r_prev_list = np.array([])
         self.t_elapsed_min = 0
-        self.r_ss = np.array()
-        self.I_ss = np.array()
+        self.r_ss = np.array([])
+        self.I_ss = np.array([])
+        
+        self.has_steady_state = False
 
         self.a_a = 0.115 # TODO: find fuel type dependent values for this
 
@@ -123,7 +126,7 @@ class Cell:
 
     def set_real_time_vals(self):
         # TODO: validate that this works correctly
-        
+
         if np.max(self.r_ss) < np.max(self.r_prev_list):
             # Allow for instant deceleration as in FARSITE
             self.r_t = self.r_ss
@@ -131,7 +134,7 @@ class Cell:
 
         else:
             self.r_t = self.r_ss - (self.r_ss - self.r_prev_list) * np.exp(-self.a_a * self.t_elapsed_min)
-            self.I_t = (self.r_t / self.r_ss) * self.I_ss
+            self.I_t = (self.r_t / (self.r_ss+1e-7)) * self.I_ss
 
     def _set_elev(self, z: float):
         """Set the elevation of a cell
@@ -195,7 +198,6 @@ class Cell:
             self.r_prev_list = np.zeros(len(self.directions))
             self.r_ss = np.zeros(len(self.directions))
             self.I_ss = np.zeros(len(self.directions))
-            self.t_elapsed_min = 0
             
     def _set_fire_type(self, fire_type: FireTypes):
         """Set the type of fire at a cell
@@ -383,7 +385,7 @@ class Cell:
         return self._fire_type
 
     @property
-    def neighbors(self) -> list:
+    def neighbors(self) -> dict:
         """List of cells that are adjacent to the cell.
         
         Each list element is in the form (id, (dx, dy))
@@ -394,7 +396,7 @@ class Cell:
         return self._neighbors
 
     @property
-    def burnable_neighbors(self) -> set:
+    def burnable_neighbors(self) -> dict:
         """Set of cells adjacent to the cell which are in a burnable state.
 
         Each element is in the form (id, (dx, dy))

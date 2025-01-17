@@ -523,4 +523,4 @@ class UtilFuncs:
             neighbor_locs = SpreadDecomp.self_loc_to_neighbor_loc_mapping[end_point]
             end_points.append(neighbor_locs)
 
-        return np.array(directions), np.array(distances), np.array(end_points)
+        return np.array(directions), np.array(distances), end_points

@@ -10,7 +10,6 @@ from typing import Tuple
 
 from embrs.base_classes.base_fire import BaseFireSim
 from embrs.utilities.fire_util import CellStates, FireTypes, FuelConstants, UtilFuncs, HexGridMath
-from embrs.utilities.fire_util import ControlledBurnParams
 from embrs.fire_simulator.cell import Cell
 from embrs.fire_simulator.wind import Wind
 
@@ -111,47 +110,47 @@ class FireSim(BaseFireSim):
 
     def iterate(self):
         """Step forward the fire simulation a single time-step
+
         """
+        # Update wind
+        # TODO: this is likely to change with WindNinja
+        self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
+        
         # Set-up iteration
         if self._init_iteration():
             self._finished = True
             return
 
-        # Update wind
-        # TODO: this is likely to change with WindNinja
-        self.wind_changed = self._wind_vec._update_wind(self._curr_time_s)
-
         if self._iters == 0:
+            self.wind_changed = True
             self._new_ignitions = self.starting_ignitions
-            self._burning_cells = list(self.starting_ignitions)
+            for cell, loc in self._new_ignitions:
+                cell.directions, cell.distances, cell.end_pts = UtilFuncs.get_ign_parameters(loc, self.cell_size)
+                cell._set_state(CellStates.FIRE)
+                self._updated_cells[cell.id] = cell
 
-        for cell, loc in self._new_ignitions:
-            # Get the parameters defining 2D spread for the fire
-            cell.directions, cell.distances, cell.end_pts = UtilFuncs.get_ign_parameters(loc, self.cell_size)
-            
-            # Set cell state to burning
-            cell._set_state(CellStates.FIRE)
-            cell._set_fire_type(FireTypes.WILD) # TODO: Deprecate wild vs. prescribed fire 
-
-            self._updated_cells[cell.id] = cell
-
-            if cell.to_log_format() not in self._curr_updates:
-                self._curr_updates.append(cell.to_log_format())
+        self._burning_cells.extend(self._new_ignitions)
+        self._new_ignitions = []
 
         for cell, loc in self._burning_cells:
-            if self.wind_changed: # Conditions have changed # TODO: this may change with WindNinja
+            if self.wind_changed or not cell.has_steady_state: # Conditions have changed # TODO: this may change with WindNinja
                 # Reset the elapsed time counters
                 cell.t_elapsed_min = 0
                 
                 # Set previous rate of spreads to the most recent value
-                cell.r_prev_list = cell.r_t
+                if cell.r_t is not None:
+                    cell.r_prev_list = cell.r_t
+                else:
+                    cell.r_prev_list = np.zeros(len(cell.directions))
 
-                # Get steady state ROS and I, along each of cell's directions
-                r_list, I_list = calc_propagation_in_cell(cell.fuel_type, cell.directions, self._wind_vec.wind_speed, self._wind_vec.wind_dir_deg, cell.slope_deg, cell.aspect)
+                # Get steady state ROS (m/s) and I(kW/m), along each of cell's directions
+                r_list, I_list = calc_propagation_in_cell(cell, self._wind_vec.wind_speed, self._wind_vec.wind_dir_deg) 
 
                 # Store steady-state values
                 cell.r_ss = r_list
                 cell.I_ss = I_list
+
+                cell.has_steady_state = True
 
             # Real-time vals stored in cell.r_t, cell.I_t
             cell.set_real_time_vals()
@@ -165,17 +164,19 @@ class FireSim(BaseFireSim):
 
             for idx in intersections:
                 # TODO: This will be called unnecessarily a few times since end points and neighbors not matched well
-                ignited_neighbors = self.ignite_neighbors(cell, r_list[idx], cell.end_points[idx])
+                ignited_neighbors = self.ignite_neighbors(cell, cell.r_t[idx], cell.end_pts[idx])
 
                 for neighbor in ignited_neighbors:
                     # Remove neighbor if its already ignited
-                    if neighbor in cell.burnable_neighbors:
-                        cell.burnable_neighbors.remove(neighbor)
+                    if neighbor.id in cell.burnable_neighbors:
+                        del cell.burnable_neighbors[neighbor.id]
                     
             # TODO: Likely need to check for if a cell has been burning for too long as well
             # TODO: Do we want to implement mass-loss approach from before?
             if not cell.burnable_neighbors:
                 self._burning_cells.remove((cell, loc))
+                cell._set_state(CellStates.BURNT)
+                self.updated_cells[cell.id] = cell
 
             cell.t_elapsed_min += self.time_step / 60
 
@@ -198,15 +199,31 @@ class FireSim(BaseFireSim):
                     
                     # Check that ignition ros meets threshold
                     if r_ign > 1e-3: # TODO: Think about using mass-loss calculation to do this or set R_min another way
-                        self.new_ignitions.append((neighbor, n_loc))
+                        self._new_ignitions.append((neighbor, n_loc)) # TODO: need a way to set neighbors's prev_r or r_t to values based on r_ign
+                        neighbor.directions, neighbor.distances, neighbor.end_pts = UtilFuncs.get_ign_parameters(n_loc, self.cell_size)
+                        neighbor._set_state(CellStates.FIRE)
+                        neighbor.r_prev_list, _ = calc_propagation_in_cell(neighbor, self.wind_vec.wind_speed, self.wind_vec.wind_dir_deg, r_ign) # TODO: does it make sense to use r_ign for r_h here
+
+                        neighbor._set_fire_type(FireTypes.WILD) # TODO: Deprecate wild vs. prescribed fire 
+
+                        self._updated_cells[neighbor.id] = neighbor
+
+                        if neighbor.to_log_format() not in self._curr_updates:
+                            self._curr_updates.append(neighbor.to_log_format())
+
                         ignited_neighbors.append(neighbor)
+                else:
+                    if neighbor.id in cell.burnable_neighbors:
+                        del cell.burnable_neighbors[neighbor.id]
+
+        return ignited_neighbors
 
     def calc_ignition_ros(self, cell, neighbor, r_gamma):
         # Get the heat source in the direction of question by eliminating denominator
         heat_source = r_gamma * calc_heat_sink(cell.fuel_type, cell.dead_m) # TODO: make sure this computation is valid (I think it is)
 
         # Get the heat sink using the neighbors fuel and moisture content
-        heat_sink = calc_heat_sink(neighbor.fuel, neighbor.dead_m) # TODO: need to implement updating fuel moisture in each cell
+        heat_sink = calc_heat_sink(neighbor.fuel_type, neighbor.dead_m) # TODO: need to implement updating fuel moisture in each cell
         
         # Calculate a ignition rate of spread
         r_ign = heat_source / heat_sink
@@ -227,8 +244,6 @@ class FireSim(BaseFireSim):
         return new_ignitions
 
     def get_neighbor_from_end_point(self, cell, end_point) -> Cell:
-        neighbor = None
-
         neighbor_letter = end_point[1]
         # Get neighbor based on neighbor_letter
         if cell._row % 2 == 0:
@@ -245,7 +260,10 @@ class FireSim(BaseFireSim):
         if self._grid_height >= row_n >=0 and self._grid_width >= col_n >= 0:
             neighbor = self._cell_grid[row_n, col_n]
 
-        return neighbor
+            if neighbor.id in cell.burnable_neighbors:
+                return neighbor
+
+        return None
 
     def get_rel_wind_direction(self, slope_dir):
         # TODO: Change wind definition to align with 0 degree north

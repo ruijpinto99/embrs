@@ -1,7 +1,8 @@
 from embrs.utilities.fuel_models import Anderson13
+from embrs.fire_simulator.cell import Cell
 import numpy as np
 
-def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg):
+def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg, R_h_in = None):
     wind_speed_ft_min = 196.85 * wind_speed_m_s
 
     slope_angle_deg = cell.slope_deg
@@ -16,15 +17,13 @@ def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg):
             rel_wind_dir_deg += 360
 
     rel_wind_dir = np.deg2rad(rel_wind_dir_deg)
-    slope_angle = np.deg2rad(slope_angle_deg)
-    slope_dir = np.deg2rad(slope_dir_deg)
     spread_directions = np.deg2rad(cell.directions)
 
     r_list = []
     I_list = []
     for decomp_dir in spread_directions:
         # rate of spread along gamma in ft/min, fireline intensity along gamma in Btu/ft/min
-        r_gamma, I_gamma = calc_r_and_i_along_dir(cell.fuel, decomp_dir, wind_speed_ft_min, rel_wind_dir, slope_angle, slope_dir)
+        r_gamma, I_gamma = calc_r_and_i_along_dir(cell, decomp_dir, wind_speed_ft_min, rel_wind_dir, R_h_in)
 
         r_gamma /= 196.85 # convert to m/s
         I_gamma *= 0.05767 # convert to kW/m # TODO: double check this conversion
@@ -79,7 +78,7 @@ def calc_heat_sink(fuel, m_f):
 
     return heat_sink
 
-def calc_r_and_i_along_dir(fuel: Anderson13, decomp_dir, wind_speed, wind_dir, slope_angle, slope_dir):
+def calc_r_and_i_along_dir(cell: Cell, decomp_dir, wind_speed, wind_dir, R_h_in = None):
     """Calculates the rate of spread in direction gamma from the ignition point
 
     :param gamma: _description_
@@ -87,8 +86,17 @@ def calc_r_and_i_along_dir(fuel: Anderson13, decomp_dir, wind_speed, wind_dir, s
     :return: _description_
     :rtype: _type_
     """
+    fuel = cell.fuel_type
+    slope_deg = np.deg2rad(cell.slope_deg)
+    slope_dir = np.deg2rad(cell.aspect)
+
     m_f = fuel.fuel_moisture # TODO: This should not be a fuel property
-    R_h, R_0, I_r, alpha = calc_r_h(fuel, m_f, wind_speed, slope_angle, wind_dir)
+
+        
+    R_h, R_0, I_r, alpha = calc_r_h(fuel, m_f, wind_speed, slope_deg, wind_dir)
+    
+    if R_h_in is not None:
+        R_h = R_h_in
 
     # TODO: Double Check that this is correct
     gamma = abs((alpha + slope_dir) - decomp_dir) % (2*np.pi)
@@ -177,7 +185,7 @@ def calc_effective_wind_speed(fuel, R_h, R_0):
     phi_e = calc_effective_wind_factor(R_h, R_0)
 
 
-    u_e = (((phi_e * fuel, fuel.rel_packing_ratio**E)/C) ** (1/B))
+    u_e = (((phi_e * fuel.rel_packing_ratio**E)/C) ** (1/B))
 
     return u_e
 
