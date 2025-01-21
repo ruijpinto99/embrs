@@ -10,6 +10,7 @@ def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg, R_h_in = None):
 
     if slope_angle_deg == 0:
         rel_wind_dir_deg = 0
+        cell.aspect = wind_dir_deg
 
     else:
         rel_wind_dir_deg = wind_dir_deg - slope_dir_deg
@@ -19,11 +20,18 @@ def calc_propagation_in_cell(cell, wind_speed_m_s, wind_dir_deg, R_h_in = None):
     rel_wind_dir = np.deg2rad(rel_wind_dir_deg)
     spread_directions = np.deg2rad(cell.directions)
 
+    R_h, R_0, I_r, alpha = calc_r_h(cell, wind_speed_ft_min, slope_angle_deg, rel_wind_dir)
+
+    if R_h_in is not None:
+        R_h = R_h_in
+
+    e = calc_eccentricity(cell.fuel_type, R_h, R_0)
+
     r_list = []
     I_list = []
     for decomp_dir in spread_directions:
         # rate of spread along gamma in ft/min, fireline intensity along gamma in Btu/ft/min
-        r_gamma, I_gamma = calc_r_and_i_along_dir(cell, decomp_dir, wind_speed_ft_min, rel_wind_dir, R_h_in)
+        r_gamma, I_gamma = calc_r_and_i_along_dir(cell, decomp_dir, R_h, I_r, alpha, e)
 
         r_gamma /= 196.85 # convert to m/s
         I_gamma *= 0.05767 # convert to kW/m # TODO: double check this conversion
@@ -78,7 +86,7 @@ def calc_heat_sink(fuel, m_f):
 
     return heat_sink
 
-def calc_r_and_i_along_dir(cell: Cell, decomp_dir, wind_speed, wind_dir, R_h_in = None):
+def calc_r_and_i_along_dir(cell: Cell, decomp_dir, R_h, I_r, alpha, e):
     """Calculates the rate of spread in direction gamma from the ignition point
 
     :param gamma: _description_
@@ -87,22 +95,10 @@ def calc_r_and_i_along_dir(cell: Cell, decomp_dir, wind_speed, wind_dir, R_h_in 
     :rtype: _type_
     """
     fuel = cell.fuel_type
-    slope_deg = np.deg2rad(cell.slope_deg)
     slope_dir = np.deg2rad(cell.aspect)
 
-    m_f = fuel.fuel_moisture # TODO: This should not be a fuel property
-
-        
-    R_h, R_0, I_r, alpha = calc_r_h(fuel, m_f, wind_speed, slope_deg, wind_dir)
-    
-    if R_h_in is not None:
-        R_h = R_h_in
-
-    # TODO: Double Check that this is correct
     gamma = abs((alpha + slope_dir) - decomp_dir) % (2*np.pi)
     gamma = np.min([gamma, 2*np.pi - gamma])
-
-    e = calc_eccentricity(fuel, R_h, R_0)
 
     R_gamma = R_h * ((1 - e)/(1 - e * np.cos(gamma)))
 
@@ -200,7 +196,7 @@ def calc_eccentricity(fuel, R_h, R_0):
 
     return e
 
-def calc_r_h(fuel, m_f, wind_speed, slope_angle, omega, R_0 = None, I_r = None):
+def calc_r_h(cell, wind_speed, slope_angle, omega, R_0 = None, I_r = None):
     """Calculate the rate of spread in the direction of maximum spread, heading fire
 
     :param R_0: _description_
@@ -214,6 +210,9 @@ def calc_r_h(fuel, m_f, wind_speed, slope_angle, omega, R_0 = None, I_r = None):
     :return: _description_
     :rtype: _type_
     """
+
+    fuel = cell.fuel_type
+    m_f = cell.dead_m
     
     if R_0 is None or I_r is None:
         R_0, I_r = calc_r_0(fuel, m_f)
