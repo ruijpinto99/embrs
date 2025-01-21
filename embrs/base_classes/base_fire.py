@@ -246,7 +246,7 @@ class BaseFireSim:
             for i in range(self._shape[0]):
                 cell = self._cell_grid[i][j]
 
-                neighbors = []
+                neighbors = {}
                 if cell.row % 2 == 0:
                     neighborhood = hex.even_neighborhood
                 else:
@@ -258,10 +258,10 @@ class BaseFireSim:
 
                     if self._grid_height >= row_n >= 0 and self._grid_width >= col_n >= 0:
                         neighbor_id = self._cell_grid[row_n, col_n].id
-                        neighbors.append((neighbor_id, (dx, dy)))
+                        neighbors[neighbor_id] = (dx, dy)
 
                 cell._neighbors = neighbors
-                cell._burnable_neighbors = set(neighbors)
+                cell._burnable_neighbors = dict(neighbors)
 
     def _set_initial_ignition(self, initial_ignition):
 
@@ -279,9 +279,7 @@ class BaseFireSim:
                     if 0 <= row < self.shape[0] and 0 <= col < self.shape[1]:
                         cell = self._cell_grid[row, col]
                         if polygon.contains(Point(cell.x_pos, cell.y_pos)) and cell._fuel_type.burnable:
-                            cell._set_fire_type(FireTypes.WILD)
-                            cell._set_state(CellStates.FIRE)
-                            self.starting_ignitions.append((cell, 6))
+                            self.starting_ignitions.append((cell, 0)) # TODO: need to have option to start spread from center of the cell
 
     def _calc_prob(self, curr_cell: Cell, neighbor: Cell, disp: tuple) -> Tuple[float, float]:
         """Calculate the probability of curr_cell igniting neighbor at the current instant and the

@@ -456,7 +456,6 @@ class UtilFuncs:
             4: (3 * cell_size) / 2,
             5: (np.sqrt(13) * cell_size) / 2, # Law of cosines
             6: np.sqrt(3) * cell_size
-
         }
 
         even_loc_distance_dict = {
@@ -467,14 +466,33 @@ class UtilFuncs:
             6: 2 * cell_size,
         }
 
-        if edge_loc %  2 == 0:
+        # Handle case where ignition starts at center
+        if edge_loc == 0:
+            if idx_diff % 2 == 0:
+                return cell_size
+            else:
+                return (np.sqrt(3) * cell_size)/2
+
+        elif edge_loc %  2 == 0:
             return even_loc_distance_dict[idx_diff]
+
         else:
             return odd_loc_distance_dict[idx_diff]
 
     @lru_cache
     def get_ign_parameters(edge_loc: int, cell_size):
-        if edge_loc % 2 == 0:
+
+        if edge_loc == 0:
+            # Ignition is at the center of cell
+            start_angle = 30
+            end_angle = 360
+
+            directions = np.linspace(start_angle, end_angle, 12)
+
+            start_end_point = 1
+            end_end_point = 12
+
+        elif edge_loc % 2 == 0:
             # Ignition is at a corner point
             start_angle = (30 * edge_loc + 120) % 360
             end_angle = (start_angle + 120)
